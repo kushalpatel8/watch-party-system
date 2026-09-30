@@ -14,7 +14,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WatchSync — YouTube Watch Party",
+  title: "WatchParty — YouTube Watch Party",
   description:
     "Watch YouTube videos together in real time with synchronized playback, rooms, and role-based controls.",
 };

@@ -6,6 +6,6 @@ export default async function Home() {
   await connectToDatabase();
   
   return (
-   <h1>Watch Sync</h1>
+   <h1>Watch Party</h1>
   );
 }
