@@ -1,3 +1,83 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+
+:root {
+  --background: hsl(222, 47%, 7%);
+  --foreground: hsl(210, 40%, 96%);
+  --card: hsl(222, 47%, 10%);
+  --card-foreground: hsl(210, 40%, 96%);
+  --popover: hsl(222, 47%, 10%);
+  --popover-foreground: hsl(210, 40%, 96%);
+  --primary: hsl(263, 80%, 64%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(217, 33%, 17%);
+  --secondary-foreground: hsl(210, 40%, 96%);
+  --muted: hsl(217, 33%, 17%);
+  --muted-foreground: hsl(215, 20%, 60%);
+  --accent: hsl(189, 94%, 43%);
+  --accent-foreground: hsl(222, 47%, 7%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(210, 40%, 96%);
+  --border: hsl(217, 33%, 20%);
+  --input: hsl(217, 33%, 20%);
+  --ring: hsl(263, 80%, 64%);
+  --radius: 0.75rem;
+
+  /* Tailwind v4 color tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+}
+
+* {
+  border-color: var(--border);
+  box-sizing: border-box;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  background-image: radial-gradient(ellipse at 20% 20%, hsl(263 80% 12%) 0%, hsl(222 47% 7%) 50%),
+                    radial-gradient(ellipse at 80% 80%, hsl(189 94% 8%) 0%, transparent 50%);
+  min-height: 100vh;
+  font-family: var(--font-space-grotesk, system-ui, sans-serif);
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: 0 0 20px hsl(263 80% 64% / 0.3), 0 0 40px hsl(263 80% 64% / 0.1);
+}
+.glow-accent {
+  box-shadow: 0 0 20px hsl(189 94% 43% / 0.3), 0 0 40px hsl(189 94% 43% / 0.1);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
+
+/* Animations */
+@keyframes float-up {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-80px) scale(1.4); }
+}
+.animate-float-up { animation: float-up 2.5s ease-out forwards; }
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(263 80% 64% / 0.4); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px hsl(263 80% 64% / 0); }
+  100% { transform: scale(0.95); }
+}
+.animate-pulse-ring { animation: pulse-ring 2s infinite; }

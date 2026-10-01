@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["server.ts", "server/**/*.ts", "types/**/*.ts", "lib/**/*.ts", "models/**/*.ts"],
+  "exclude": ["node_modules", ".next", "app", "components", "hooks", "store"]
+}

@@ -1,5 +1,7 @@
 import { clerkMiddleware } from '@clerk/nextjs/server';
 
+// Auth enforcement is done server-side in each page/route via auth()
+// The middleware just processes Clerk session tokens for all requests
 export default clerkMiddleware();
 
 export const config = {
