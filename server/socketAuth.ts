@@ -1,6 +1,6 @@
 import { createClerkClient, verifyToken } from '@clerk/backend';
 import type { Socket } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@/types/events';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '../types/events';
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 

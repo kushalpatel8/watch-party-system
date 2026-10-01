@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
-import type { ServerToClientEvents, SyncState, ChangeRequest, ParticipantInfo } from '@/types/events';
-import type { Role } from '@/types/roles';
+import type { ServerToClientEvents, SyncState, ChangeRequest, ParticipantInfo } from '../types/events';
+import type { Role } from '../types/roles';
 import { Participant } from './Participant';
 
 export class Room {

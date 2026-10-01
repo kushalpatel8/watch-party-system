@@ -1,6 +1,6 @@
 import { Room } from './Room';
 import type { Server } from 'socket.io';
-import type { ServerToClientEvents } from '@/types/events';
+import type { ServerToClientEvents } from '../types/events';
 
 export class RoomManager {
   private static instance: RoomManager;

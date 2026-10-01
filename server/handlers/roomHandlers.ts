@@ -1,9 +1,9 @@
 import type { Socket, Server } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@/types/events';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '../../types/events';
 import { RoomManager } from '../RoomManager';
 import { Participant } from '../Participant';
-import { connectToDatabase } from '@/lib/db';
-import { Room as RoomModel } from '@/models/Room';
+import { connectToDatabase } from '../../lib/db';
+import { Room as RoomModel } from '../../models/Room';
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 

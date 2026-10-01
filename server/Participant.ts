@@ -1,5 +1,5 @@
-import type { Role } from '@/types/roles';
-import type { ParticipantInfo } from '@/types/events';
+import type { Role } from '../types/roles';
+import type { ParticipantInfo } from '../types/events';
 
 export class Participant {
   public readonly userId: string;

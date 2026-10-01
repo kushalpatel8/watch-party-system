@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@/types/events';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '../types/events';
 import { registerRoomHandlers } from './handlers/roomHandlers';
 import { registerPlaybackHandlers } from './handlers/playbackHandlers';
 import { registerRoleHandlers } from './handlers/roleHandlers';

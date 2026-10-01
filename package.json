@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "next build && tsc -p tsconfig.server.json",
-    "start": "NODE_ENV=production node dist/server.js",
+    "start": "node dist/server.js",
     "lint": "eslint"
   },
   "dependencies": {

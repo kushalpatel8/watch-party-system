@@ -1,8 +1,8 @@
 import type { Socket, Server } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@/types/events';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '../../types/events';
 import { RoomManager } from '../RoomManager';
 import { PermissionPolicy } from '../PermissionPolicy';
-import { parseYouTubeUrl } from '@/lib/youtube';
+import { parseYouTubeUrl } from '../../lib/youtube';
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 

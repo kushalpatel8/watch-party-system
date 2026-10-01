@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@/types/events';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '../types/events';
 import { socketAuth } from './socketAuth';
 import { RoomManager } from './RoomManager';
 import { registerRoomHandlers } from './handlers/roomHandlers';

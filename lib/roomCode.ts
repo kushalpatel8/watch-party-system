@@ -1,6 +1,6 @@
 import { customAlphabet } from 'nanoid';
-import { connectToDatabase } from '@/lib/db';
-import { Room } from '@/models/Room';
+import { connectToDatabase } from './db';
+import { Room } from '../models/Room';
 
 const nanoid = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
 

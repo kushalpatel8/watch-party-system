@@ -1,5 +1,5 @@
 import type { Socket, Server } from 'socket.io';
-import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '@/types/events';
+import type { ClientToServerEvents, ServerToClientEvents, SocketData } from '../../types/events';
 import { RoomManager } from '../RoomManager';
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;

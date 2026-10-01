@@ -1,4 +1,4 @@
-import type { Role, Action } from '@/types/roles';
+import type { Role, Action } from '../types/roles';
 
 // Client-side mirror of the server PermissionPolicy
 // Used to disable UI controls for unauthorized users

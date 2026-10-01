@@ -1,4 +1,4 @@
-import type { Role, Action } from '@/types/roles';
+import type { Role, Action } from '../types/roles';
 
 type PermissionMatrix = Record<Role, Action[]>;
 
