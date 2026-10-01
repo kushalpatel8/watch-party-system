@@ -5,6 +5,8 @@ import { Room } from '@/models/Room';
 import { RoomClient } from '@/components/room/RoomClient';
 import type { Metadata } from 'next';
 
+export const dynamic = 'force-dynamic';
+
 interface RoomPageProps {
   params: Promise<{ roomId: string }>;
 }

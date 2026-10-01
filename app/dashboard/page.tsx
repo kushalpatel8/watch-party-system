@@ -7,6 +7,8 @@ import { UserButton } from '@clerk/nextjs';
 import { ArrowLeft, Tv2, Plus, Clock } from 'lucide-react';
 import type { Metadata } from 'next';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Dashboard — WatchParty',
   description: 'Your WatchParty rooms',
