@@ -53,7 +53,16 @@ export interface ServerToClientEvents {
   participant_removed: (data: { userId: string; participants: ParticipantInfo[] }) => void;
   host_transferred: (data: { newHostId: string; newHostUsername: string; participants: ParticipantInfo[] }) => void;
   change_requested: (data: ChangeRequest) => void;
-  request_resolved: (data: { requestId: string; approve: boolean; resolverUsername: string }) => void;
+  request_sent: (data: { requestId: string; type: ChangeRequest['type']; payload?: Record<string, unknown> }) => void;
+  request_resolved: (data: {
+    requestId: string;
+    approve: boolean;
+    resolverUsername: string;
+    requesterUserId?: string;
+    requesterUsername?: string;
+    type?: ChangeRequest['type'];
+    payload?: Record<string, unknown>;
+  }) => void;
   chat_message: (data: { userId: string; username: string; text: string; timestamp: number }) => void;
   reaction: (data: { userId: string; username: string; emoji: string; timestamp: number }) => void;
   error: (data: { code: string; message: string }) => void;

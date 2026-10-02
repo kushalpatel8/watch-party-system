@@ -40,3 +40,64 @@ export async function POST(req: NextRequest) {
     url: `/room/${room.code}`,
   }, { status: 201 });
 }
+
+export async function GET(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    await connectToDatabase();
+    const rooms = await Room.find({
+      $or: [{ hostId: userId }, { 'members.userId': userId }],
+    })
+      .sort({ lastActiveAt: -1 })
+      .limit(30)
+      .lean();
+
+    const formatted = rooms.map((r: any) => {
+      const isHost = r.hostId === userId;
+      const member = r.members?.find((m: any) => m.userId === userId);
+      const role = isHost ? 'Host' : member?.role || 'Participant';
+      return {
+        id: r._id.toString(),
+        code: r.code,
+        role,
+        lastActiveAt: r.lastActiveAt || r.createdAt,
+        membersCount: r.members?.length || 1,
+        currentVideoId: r.currentVideoId,
+      };
+    });
+
+    return NextResponse.json({ rooms: formatted });
+  } catch (err) {
+    console.error('[GET /api/rooms] Error:', err);
+    return NextResponse.json({ error: 'Failed to fetch rooms' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    await connectToDatabase();
+
+    // 1. Delete rooms hosted by this user
+    await Room.deleteMany({ hostId: userId });
+
+    // 2. Remove user from members in other rooms
+    await Room.updateMany(
+      { 'members.userId': userId },
+      { $pull: { members: { userId } } }
+    );
+
+    return NextResponse.json({ success: true, message: 'Past room history cleared' });
+  } catch (err) {
+    console.error('[DELETE /api/rooms] Error:', err);
+    return NextResponse.json({ error: 'Failed to clear history' }, { status: 500 });
+  }
+}

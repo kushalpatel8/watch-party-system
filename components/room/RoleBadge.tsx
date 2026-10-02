@@ -11,17 +11,17 @@ interface RoleBadgeProps {
 const roleConfig: Record<Role, { label: string; className: string; Icon: React.ComponentType<any> }> = {
   Host: {
     label: 'Host',
-    className: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+    className: 'bg-amber-100 dark:bg-amber-500/15 text-[#b45309] dark:text-amber-400 border border-amber-300 dark:border-amber-500/30 font-bold',
     Icon: Crown,
   },
   Moderator: {
     label: 'Mod',
-    className: 'bg-violet-500/20 text-violet-400 border border-violet-500/30',
+    className: 'bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-500/30 font-bold',
     Icon: Shield,
   },
   Participant: {
     label: 'Viewer',
-    className: 'bg-slate-500/20 text-slate-400 border border-slate-500/30',
+    className: 'bg-stone-100 dark:bg-white/10 text-stone-700 dark:text-white/80 border border-stone-300 dark:border-white/10 font-bold',
     Icon: User,
   },
 };

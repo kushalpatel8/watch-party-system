@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket-client';
 import { useRoomStore } from '@/store/roomStore';
+import { toast } from '@/store/toastStore';
 
 /**
  * Connects the socket with a fresh Clerk token and wires all global store updates.
@@ -31,9 +32,11 @@ export function useSocket(roomId: string) {
       socket.off('participant_removed');
       socket.off('host_transferred');
       socket.off('change_requested');
+      socket.off('request_sent');
       socket.off('request_resolved');
       socket.off('chat_message');
       socket.off('reaction');
+      socket.off('error');
     }
 
     async function connect() {
@@ -79,10 +82,48 @@ export function useSocket(roomId: string) {
         if (isMounted) store.setParticipants(participants);
       });
       socket.on('change_requested', (req) => {
-        if (isMounted) store.addRequest(req);
+        if (!isMounted) return;
+        store.addRequest(req);
+        // Notify host / mod
+        const label = req.type === 'change_video' ? 'change the video' : req.type;
+        toast.request(
+          'New Request Received',
+          `${req.requesterUsername} requested to ${label}.`
+        );
       });
-      socket.on('request_resolved', ({ requestId }) => {
-        if (isMounted) store.removeRequest(requestId);
+      socket.on('request_sent', ({ type }) => {
+        if (!isMounted) return;
+        const label = type === 'change_video' ? 'Video change' : `${type}`;
+        toast.request(
+          'Request Sent 📨',
+          `${label} request submitted to the host.`
+        );
+      });
+      socket.on('request_resolved', ({ requestId, approve, resolverUsername, requesterUserId, requesterUsername, type }) => {
+        if (!isMounted) return;
+        store.removeRequest(requestId);
+
+        const isMeRequester = requesterUserId === userId;
+        const label = type === 'change_video' ? 'video change' : 'change';
+
+        if (isMeRequester) {
+          if (approve) {
+            toast.success(
+              'Request Accepted! 🎉',
+              `Your ${label} request was approved by ${resolverUsername}.`
+            );
+          } else {
+            toast.error(
+              'Request Declined ✕',
+              `Your ${label} request was rejected by ${resolverUsername}.`
+            );
+          }
+        } else if (approve) {
+          toast.info(
+            'Request Approved',
+            `${resolverUsername} accepted ${requesterUsername ? `${requesterUsername}'s` : 'a'} ${label} request.`
+          );
+        }
       });
       socket.on('chat_message', (m) => {
         if (isMounted) store.addChatMessage(m);
@@ -93,6 +134,11 @@ export function useSocket(roomId: string) {
         setTimeout(() => {
           if (isMounted) store.removeReaction(`${r.userId}-${r.timestamp}`);
         }, 3000);
+      });
+      socket.on('error', ({ message }) => {
+        if (isMounted && message) {
+          toast.error('Notice', message);
+        }
       });
 
       if (socket.connected && !joined.current) {

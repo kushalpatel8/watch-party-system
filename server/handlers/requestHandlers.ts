@@ -43,6 +43,13 @@ export function registerRequestHandlers(
 
     // Notify only Host and Moderators
     ctx.room.broadcastToRoles(['Host', 'Moderator'], 'change_requested', request);
+
+    // Notify the requester that their request was successfully submitted
+    socket.emit('request_sent', {
+      requestId: request.requestId,
+      type: request.type,
+      payload: request.payload,
+    });
   });
 
   // ── resolve_request ───────────────────────────────────────────────────────
@@ -60,15 +67,16 @@ export function registerRequestHandlers(
     }
     ctx.room.pendingRequests.delete(requestId);
 
-    // Notify requester
-    const requester = ctx.room.getParticipant(request.requesterUserId);
-    if (requester) {
-      io.to(requester.socketId).emit('request_resolved', {
-        requestId,
-        approve,
-        resolverUsername: ctx.participant.username,
-      });
-    }
+    // Broadcast resolution to the entire room with full metadata
+    ctx.room.broadcast('request_resolved', {
+      requestId,
+      approve,
+      resolverUsername: ctx.participant.username,
+      requesterUserId: request.requesterUserId,
+      requesterUsername: request.requesterUsername,
+      type: request.type,
+      payload: request.payload,
+    });
 
     // If approved, execute the action
     if (approve) {

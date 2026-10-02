@@ -2,27 +2,29 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: hsl(222, 47%, 7%);
-  --foreground: hsl(210, 40%, 96%);
-  --card: hsl(222, 47%, 10%);
-  --card-foreground: hsl(210, 40%, 96%);
-  --popover: hsl(222, 47%, 10%);
-  --popover-foreground: hsl(210, 40%, 96%);
-  --primary: hsl(263, 80%, 64%);
+  --background: hsl(40, 30%, 98%);
+  --foreground: hsl(24, 20%, 15%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(24, 20%, 15%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(24, 20%, 15%);
+  --primary: hsl(35, 92%, 48%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(217, 33%, 17%);
-  --secondary-foreground: hsl(210, 40%, 96%);
-  --muted: hsl(217, 33%, 17%);
-  --muted-foreground: hsl(215, 20%, 60%);
-  --accent: hsl(189, 94%, 43%);
-  --accent-foreground: hsl(222, 47%, 7%);
+  --secondary: hsl(40, 20%, 93%);
+  --secondary-foreground: hsl(24, 20%, 15%);
+  --muted: hsl(40, 15%, 92%);
+  --muted-foreground: hsl(25, 10%, 45%);
+  --accent: hsl(35, 92%, 48%);
+  --accent-foreground: hsl(0, 0%, 100%);
   --destructive: hsl(0, 84%, 60%);
-  --destructive-foreground: hsl(210, 40%, 96%);
-  --border: hsl(217, 33%, 20%);
-  --input: hsl(217, 33%, 20%);
-  --ring: hsl(263, 80%, 64%);
-  --radius: 0.75rem;
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(40, 20%, 88%);
+  --input: hsl(40, 20%, 88%);
+  --ring: hsl(35, 92%, 48%);
+  --radius: 0.85rem;
 
   /* Tailwind v4 color tokens */
   --color-background: var(--background);
@@ -34,6 +36,28 @@
   --color-ring: var(--ring);
 }
 
+.dark {
+  --background: hsl(217, 33%, 17%);
+  --foreground: hsl(210, 40%, 98%);
+  --card: hsl(217, 33%, 22%);
+  --card-foreground: hsl(210, 40%, 98%);
+  --popover: hsl(217, 33%, 22%);
+  --popover-foreground: hsl(210, 40%, 98%);
+  --primary: hsl(38, 92%, 50%);
+  --primary-foreground: hsl(224, 50%, 6%);
+  --secondary: hsl(217, 28%, 25%);
+  --secondary-foreground: hsl(210, 40%, 98%);
+  --muted: hsl(217, 28%, 24%);
+  --muted-foreground: hsl(215, 20%, 70%);
+  --accent: hsl(38, 92%, 50%);
+  --accent-foreground: hsl(224, 50%, 6%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+  --border: hsl(217, 25%, 28%);
+  --input: hsl(217, 25%, 28%);
+  --ring: hsl(38, 92%, 50%);
+}
+
 * {
   border-color: var(--border);
   box-sizing: border-box;
@@ -41,32 +65,86 @@
 
 body {
   color: var(--foreground);
-  background-color: var(--background);
-  background-image: radial-gradient(ellipse at 20% 20%, hsl(263 80% 12%) 0%, hsl(222 47% 7%) 50%),
-                    radial-gradient(ellipse at 80% 80%, hsl(189 94% 8%) 0%, transparent 50%);
+  background-color: #fcfaf7;
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.09) 0%, rgba(254, 243, 199, 0.45) 35%, transparent 75%),
+    radial-gradient(circle at 92% 15%, rgba(251, 113, 133, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 8% 70%, rgba(217, 249, 157, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(245, 158, 11, 0.05) 0%, transparent 40%);
   min-height: 100vh;
-  font-family: var(--font-space-grotesk, system-ui, sans-serif);
+  font-family: var(--font-space-grotesk, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+html.dark body {
+  background-color: #1e293b;
+  background-image: 
+    linear-gradient(180deg, #243147 0%, #1e293b 35%, #182234 100%),
+    radial-gradient(ellipse at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 85% 90%, rgba(245, 158, 11, 0.03) 0%, transparent 40%);
+  background-attachment: fixed;
 }
 
 /* Glass effect */
 .glass {
-  background: rgba(255,255,255,0.04);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(231, 229, 228, 0.85);
+}
+
+html.dark .glass {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Glow effects */
+.glow-amber {
+  box-shadow: 0 4px 20px rgba(232, 137, 12, 0.25), 0 0 40px rgba(245, 158, 11, 0.1);
+}
 .glow-primary {
-  box-shadow: 0 0 20px hsl(263 80% 64% / 0.3), 0 0 40px hsl(263 80% 64% / 0.1);
+  box-shadow: 0 4px 18px rgba(232, 137, 12, 0.25);
 }
 .glow-accent {
-  box-shadow: 0 0 20px hsl(189 94% 43% / 0.3), 0 0 40px hsl(189 94% 43% / 0.1);
+  box-shadow: 0 4px 18px rgba(219, 39, 119, 0.2);
+}
+.cyber-player-frame {
+  border: 2px solid #e8890c;
+  box-shadow: 0 8px 30px rgba(232, 137, 12, 0.2), inset 0 0 15px rgba(245, 158, 11, 0.05);
+}
+.cyber-card {
+  background: #ffffff;
+  border: 1px solid rgba(231, 229, 228, 0.9);
+}
+
+html.dark .cyber-card {
+  background: #253248;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(232, 137, 12, 0.5); }
+
+html.dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+html.dark ::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.4); }
+
+/* Utility to hide scrollbars while preserving scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Touch & Mobile Utilities */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
 
 /* Animations */
 @keyframes float-up {
@@ -76,8 +154,9 @@ body {
 .animate-float-up { animation: float-up 2.5s ease-out forwards; }
 
 @keyframes pulse-ring {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(263 80% 64% / 0.4); }
-  70% { transform: scale(1); box-shadow: 0 0 0 10px hsl(263 80% 64% / 0); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(232, 137, 12, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(232, 137, 12, 0); }
   100% { transform: scale(0.95); }
 }
 .animate-pulse-ring { animation: pulse-ring 2s infinite; }
+

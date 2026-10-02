@@ -35,10 +35,10 @@ export function PlayerControls({ getCurrentTime }: PlayerControlsProps) {
       <button
         id="player-toggle-btn"
         onClick={isPlaying ? pause : play}
-        className="w-12 h-12 rounded-full bg-violet-600 hover:bg-violet-500 flex items-center justify-center text-white transition-all glow-primary shadow-lg"
+        className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 flex items-center justify-center text-slate-950 transition-all shadow-[0_0_20px_rgba(245,158,11,0.4)] cursor-pointer active:scale-95"
         title={isPlaying ? 'Pause' : 'Play'}
       >
-        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+        {isPlaying ? <Pause className="w-5 h-5 fill-slate-950" /> : <Play className="w-5 h-5 ml-0.5 fill-slate-950" />}
       </button>
     </div>
   );

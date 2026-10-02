@@ -94,11 +94,13 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
         width: '100%',
         playerVars: {
           autoplay: 0,
-          controls: 1,
+          controls: 0,
           modestbranding: 1,
           rel: 0,
           playsinline: 1,
           enablejsapi: 1,
+          disablekb: 1,
+          fs: 0,
         },
         events: {
           onReady: () => {
