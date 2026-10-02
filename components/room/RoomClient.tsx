@@ -181,9 +181,21 @@ export function RoomClient({ roomId }: RoomClientProps) {
 
           {/* Underneath Player: Controls, URL input & reactions (Aligned to Bottom) */}
           <div className="mt-auto bg-white/95 dark:bg-[#253248]/95 border border-stone-200/90 dark:border-white/5 rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 flex flex-col gap-1 sm:gap-1.5 flex-shrink-0 shadow-xs dark:shadow-[0_10px_25px_rgba(0,0,0,0.3)] transition-colors">
-            {canControl && <VideoUrlInput />}
+            {/* Connection status indicator when connecting */}
+            {!connected && (
+              <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-medium">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Connecting to live room sync...
+                </span>
+                <span className="text-[10px] text-stone-500 dark:text-white/40">Syncing WebSocket</span>
+              </div>
+            )}
 
-            {!canControl && syncState?.videoId && (
+            {/* Video URL Input or Request Change Button */}
+            {canControl || !syncState?.videoId || participants.length <= 1 ? (
+              <VideoUrlInput />
+            ) : (
               <div className="flex items-center justify-center">
                 <button
                   id="request-change-btn"

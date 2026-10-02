@@ -135,13 +135,27 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
                 state.playState === 'playing'
                   ? state.currentTime + (Date.now() - state.updatedAt) / 1000
                   : state.currentTime;
-
+              const safePos = Math.max(0, livePos);
               try {
-                playerRef.current?.loadVideoById({
-                  videoId: state.videoId,
-                  startSeconds: Math.max(0, livePos),
-                });
-              } catch (_) {}
+                if (state.playState === 'playing') {
+                  if (typeof playerRef.current?.loadVideoById === 'function') {
+                    playerRef.current.loadVideoById(state.videoId, safePos);
+                  }
+                } else {
+                  if (typeof playerRef.current?.cueVideoById === 'function') {
+                    playerRef.current.cueVideoById(state.videoId, safePos);
+                  } else if (typeof playerRef.current?.loadVideoById === 'function') {
+                    playerRef.current.loadVideoById(state.videoId, safePos);
+                  }
+                }
+              } catch (_) {
+                try {
+                  playerRef.current?.loadVideoById({
+                    videoId: state.videoId,
+                    startSeconds: safePos,
+                  });
+                } catch (_) {}
+              }
 
               if (state.playState === 'playing') {
                 try {
@@ -156,7 +170,7 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
                     playerRef.current?.pauseVideo();
                   } catch (_) {}
                   suppressRef.current = false;
-                }, 800);
+                }, 600);
               }
               pendingSyncRef.current = null;
             }
@@ -228,12 +242,27 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
     if (syncState.videoId && syncState.videoId !== prevVideoId.current) {
       prevVideoId.current = syncState.videoId;
       suppressRef.current = true;
+      const safePos = Math.max(0, livePos);
       try {
-        player.loadVideoById({
-          videoId: syncState.videoId,
-          startSeconds: Math.max(0, livePos),
-        });
-      } catch (_) {}
+        if (syncState.playState === 'playing') {
+          if (typeof player.loadVideoById === 'function') {
+            player.loadVideoById(syncState.videoId, safePos);
+          }
+        } else {
+          if (typeof player.cueVideoById === 'function') {
+            player.cueVideoById(syncState.videoId, safePos);
+          } else if (typeof player.loadVideoById === 'function') {
+            player.loadVideoById(syncState.videoId, safePos);
+          }
+        }
+      } catch (_) {
+        try {
+          player.loadVideoById({
+            videoId: syncState.videoId,
+            startSeconds: safePos,
+          });
+        } catch (_) {}
+      }
 
       if (syncState.playState === 'playing') {
         try {
@@ -248,7 +277,7 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
             player.pauseVideo();
           } catch (_) {}
           suppressRef.current = false;
-        }, 800);
+        }, 600);
       }
       return;
     }

@@ -62,6 +62,7 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
   }, [playerRef, readyRef]);
 
   function handleTogglePlay() {
+    setAutoplayClicked(true);
     if (!canControl) return;
     if (isPlaying) {
       socket.emit('pause', {});
@@ -71,6 +72,7 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
   }
 
   function handleSeek(e: React.ChangeEvent<HTMLInputElement>) {
+    setAutoplayClicked(true);
     if (!canControl) return;
     const target = parseFloat(e.target.value);
     setCurrentTime(target);

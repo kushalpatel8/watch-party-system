@@ -24,6 +24,7 @@ export function useSocket(roomId: string) {
 
     function removeListeners() {
       socket.off('connect');
+      socket.off('connect_error');
       socket.off('disconnect');
       socket.off('sync_state');
       socket.off('user_joined');
@@ -40,7 +41,12 @@ export function useSocket(roomId: string) {
     }
 
     async function connect() {
-      const token = await getToken();
+      let token: string | null = null;
+      try {
+        token = await getToken();
+      } catch (tokenErr) {
+        console.warn('[useSocket] Failed to retrieve Clerk token:', tokenErr);
+      }
       if (!token || !isMounted) return;
 
       socket = connectSocket(token);
@@ -55,6 +61,12 @@ export function useSocket(roomId: string) {
           socket.emit('join_room', { roomId });
           joined.current = true;
         }
+      });
+
+      socket.on('connect_error', (err) => {
+        if (!isMounted) return;
+        console.warn('[useSocket] Socket connect_error:', err?.message || err);
+        store.setConnected(false);
       });
 
       socket.on('disconnect', () => {

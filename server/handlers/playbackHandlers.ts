@@ -61,7 +61,7 @@ export function registerPlaybackHandlers(
   });
 
   // ── change_video ──────────────────────────────────────────────────────────
-  socket.on('change_video', ({ videoId }) => {
+  socket.on('change_video', async ({ videoId }) => {
     const ctx = getContext();
     if (!ctx) return;
     if (!PermissionPolicy.can(ctx.participant.role, 'change_video')) {
@@ -75,5 +75,17 @@ export function registerPlaybackHandlers(
     }
     ctx.room.applyChangeVideo(parsed);
     ctx.room.broadcast('sync_state', ctx.room.getSyncState());
+
+    try {
+      const { connectToDatabase } = await import('../../lib/db');
+      const { Room: RoomModel } = await import('../../models/Room');
+      await connectToDatabase();
+      await RoomModel.updateOne(
+        { code: ctx.room.roomId },
+        { currentVideoId: parsed, lastActiveAt: new Date() }
+      );
+    } catch (dbErr) {
+      console.error('[change_video] DB update failed:', dbErr);
+    }
   });
 }

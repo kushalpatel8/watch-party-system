@@ -18,12 +18,18 @@ export function VideoUrlInput({ disabled }: VideoUrlInputProps) {
     e.preventDefault();
     setError('');
     setSuccess(false);
-    const videoId = parseYouTubeUrl(url.trim());
-    if (!videoId) {
-      setError('Invalid YouTube URL');
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setError('Please enter a YouTube video URL or ID.');
       return;
     }
-    getSocket().emit('change_video', { videoId });
+    const videoId = parseYouTubeUrl(trimmed);
+    if (!videoId) {
+      setError('Invalid YouTube link or ID. Please check the URL.');
+      return;
+    }
+    const socket = getSocket();
+    socket.emit('change_video', { videoId });
     setUrl('');
     setSuccess(true);
     setTimeout(() => setSuccess(false), 2000);

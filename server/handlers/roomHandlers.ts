@@ -24,13 +24,15 @@ export function registerRoomHandlers(io: Server<ClientToServerEvents, ServerToCl
       const room = manager.getOrCreate(roomId.toUpperCase());
       socket.data.roomId = roomId.toUpperCase();
 
-      // Determine role: host if creator, else check existing membership
+      // Determine role: host if creator or if room is empty, else check existing membership
       let role: 'Host' | 'Moderator' | 'Participant' = 'Participant';
-      if (dbRoom.hostId === userId) {
+      if (dbRoom.hostId === userId || room.isEmpty()) {
         role = 'Host';
       } else {
         const existing = dbRoom.members.find((m: { userId: string; role: string }) => m.userId === userId);
-        if (existing) role = existing.role as 'Host' | 'Moderator' | 'Participant';
+        if (existing) {
+          role = existing.role as 'Host' | 'Moderator' | 'Participant';
+        }
       }
 
       // If already in room (reconnect), update socketId
@@ -44,6 +46,14 @@ export function registerRoomHandlers(io: Server<ClientToServerEvents, ServerToCl
       }
 
       await socket.join(roomId.toUpperCase());
+
+      // Restore video from DB if memory room has no video yet
+      if (!room.videoId && dbRoom.currentVideoId) {
+        room.videoId = dbRoom.currentVideoId;
+        room.playState = 'paused';
+        room.currentTime = 0;
+        room.updatedAt = Date.now();
+      }
 
       // Send current sync state to joining user
       if (room.videoId) {
