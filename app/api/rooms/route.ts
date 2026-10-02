@@ -4,7 +4,7 @@ import { connectToDatabase } from '@/lib/db';
 import { Room } from '@/models/Room';
 import { User } from '@/models/User';
 import { generateRoomCode } from '@/lib/roomCode';
-import { z } from 'zod';
+import { setRoomDataCache, setUserProfileCache } from '@/lib/redis';
 
 export async function POST(req: NextRequest) {
   const { userId, sessionClaims } = await auth();
@@ -19,10 +19,12 @@ export async function POST(req: NextRequest) {
     (sessionClaims?.username as string) ||
     ((sessionClaims?.firstName as string) && `${sessionClaims.firstName} ${sessionClaims.lastName ?? ''}`.trim()) ||
     'Anonymous';
+  const imageUrl = (sessionClaims?.imageUrl as string) ?? '';
 
+  setUserProfileCache(userId, { username, imageUrl }).catch(() => {});
   await User.findOneAndUpdate(
     { clerkId: userId },
-    { username, imageUrl: (sessionClaims?.imageUrl as string) ?? '' },
+    { username, imageUrl },
     { upsert: true, new: true }
   );
 
@@ -33,6 +35,33 @@ export async function POST(req: NextRequest) {
     hostId: userId,
     members: [{ userId, role: 'Host' }],
   });
+
+  // Pre-seed Redis cache so room is instantly accessible (<15ms)
+  const initialData = {
+    code: room.code,
+    hostId: room.hostId,
+    currentVideoId: 'VuG7ge_8I2Y',
+    memberCount: 1,
+    participants: [
+      {
+        userId,
+        username,
+        imageUrl,
+        role: 'Host',
+        joinedAt: Date.now(),
+      },
+    ],
+    syncState: {
+      videoId: 'VuG7ge_8I2Y',
+      playState: 'paused',
+      currentTime: 0,
+      updatedAt: Date.now(),
+    },
+    messages: [],
+    createdAt: room.createdAt,
+    lastActiveAt: room.lastActiveAt,
+  };
+  setRoomDataCache(code, initialData).catch(() => {});
 
   return NextResponse.json({
     code: room.code,

@@ -2,20 +2,48 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { Room } from '@/models/Room';
 import { User } from '@/models/User';
+import {
+  getRoomDataCache,
+  setRoomDataCache,
+  setUserProfileCache,
+  getMultipleUserProfiles,
+} from '@/lib/redis';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
+  const upperCode = code.toUpperCase();
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
   const username = searchParams.get('username');
   const imageUrl = searchParams.get('imageUrl') || '';
 
+  // 1. Fast path: check Upstash Redis cache (<15ms latency)
+  const cached = await getRoomDataCache(upperCode);
+  if (cached) {
+    const isMemberInCache = userId
+      ? cached.participants?.some((p: any) => p.userId === userId)
+      : true;
+
+    if (isMemberInCache) {
+      if (userId && username) {
+        setUserProfileCache(userId, { username, imageUrl }).catch(() => {});
+      }
+      return NextResponse.json(cached, {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'X-Cache': 'HIT-REDIS',
+        },
+      });
+    }
+  }
+
+  // 2. Slow path: Connect to MongoDB on cache miss or new member join
   await connectToDatabase();
 
-  const room = await Room.findOne({ code: code.toUpperCase() });
+  const room = await Room.findOne({ code: upperCode });
   if (!room) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }
@@ -24,7 +52,8 @@ export async function GET(
   let isModified = false;
   if (userId) {
     if (username) {
-      await User.findOneAndUpdate(
+      setUserProfileCache(userId, { username, imageUrl }).catch(() => {});
+      User.findOneAndUpdate(
         { clerkId: userId },
         { username, imageUrl },
         { upsert: true, new: true }
@@ -61,14 +90,22 @@ export async function GET(
     await room.save().catch(() => {});
   }
 
-  // Fetch user profiles for all members to build rich participant list
+  // Fetch user profiles (try Redis multi-get first, then MongoDB fallback)
   const memberIds = room.members.map((m: { userId: string }) => m.userId);
-  const users = await User.find({ clerkId: { $in: memberIds } }).lean();
-  const userMap = new Map(users.map((u: any) => [u.clerkId, u]));
+  const redisProfiles = await getMultipleUserProfiles(memberIds);
+
+  const missingIds = memberIds.filter((id: string) => !redisProfiles.has(id));
+  if (missingIds.length > 0) {
+    const users = await User.find({ clerkId: { $in: missingIds } }).lean();
+    users.forEach((u: any) => {
+      redisProfiles.set(u.clerkId, { username: u.username, imageUrl: u.imageUrl });
+      setUserProfileCache(u.clerkId, { username: u.username, imageUrl: u.imageUrl }).catch(() => {});
+    });
+  }
 
   const participants = room.members.map((m: { userId: string; role: string }) => {
     const isHost = m.userId === room.hostId || m.role === 'Host';
-    const profile = userMap.get(m.userId);
+    const profile = redisProfiles.get(m.userId);
     const uname =
       profile?.username ||
       (isHost ? 'Host' : `User ${m.userId.slice(-4)}`);
@@ -97,7 +134,7 @@ export async function GET(
     timestamp: m.timestamp,
   }));
 
-  return NextResponse.json({
+  const responseData = {
     code: room.code,
     hostId: room.hostId,
     currentVideoId: room.currentVideoId,
@@ -107,6 +144,16 @@ export async function GET(
     messages,
     createdAt: room.createdAt,
     lastActiveAt: room.lastActiveAt,
+  };
+
+  // Cache compiled response in Redis for all upcoming polls
+  await setRoomDataCache(upperCode, responseData);
+
+  return NextResponse.json(responseData, {
+    headers: {
+      'Cache-Control': 'no-store, max-age=0',
+      'X-Cache': 'MISS-SAVED-TO-REDIS',
+    },
   });
 }
 
@@ -115,11 +162,12 @@ export async function PATCH(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
+  const upperCode = code.toUpperCase();
   try {
     const body = await req.json();
     await connectToDatabase();
 
-    let room = await Room.findOne({ code: code.toUpperCase() });
+    let room = await Room.findOne({ code: upperCode });
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
@@ -223,15 +271,23 @@ export async function PATCH(
     }
 
     room.lastActiveAt = new Date();
-    await room.save();
+    room.save().catch((err: any) => console.error('[PATCH] MongoDB save error:', err));
 
     const memberIds = room.members.map((m: { userId: string }) => m.userId);
-    const users = await User.find({ clerkId: { $in: memberIds } }).lean();
-    const userMap = new Map(users.map((u: any) => [u.clerkId, u]));
+    const redisProfiles = await getMultipleUserProfiles(memberIds);
+
+    const missingIds = memberIds.filter((id: string) => !redisProfiles.has(id));
+    if (missingIds.length > 0) {
+      const users = await User.find({ clerkId: { $in: missingIds } }).lean();
+      users.forEach((u: any) => {
+        redisProfiles.set(u.clerkId, { username: u.username, imageUrl: u.imageUrl });
+        setUserProfileCache(u.clerkId, { username: u.username, imageUrl: u.imageUrl }).catch(() => {});
+      });
+    }
 
     const participants = room.members.map((m: { userId: string; role: string }) => {
       const isHost = m.userId === room.hostId || m.role === 'Host';
-      const profile = userMap.get(m.userId);
+      const profile = redisProfiles.get(m.userId);
       const uname = profile?.username || (isHost ? 'Host' : `User ${m.userId.slice(-4)}`);
       return {
         userId: m.userId,
@@ -257,7 +313,7 @@ export async function PATCH(
       timestamp: m.timestamp,
     }));
 
-    return NextResponse.json({
+    const responseData = {
       code: room.code,
       hostId: room.hostId,
       currentVideoId: room.currentVideoId,
@@ -266,6 +322,15 @@ export async function PATCH(
       syncState,
       messages,
       lastActiveAt: room.lastActiveAt,
+    };
+
+    // Fast write-through to Redis cache so all participants receive updates instantly
+    await setRoomDataCache(upperCode, responseData);
+
+    return NextResponse.json(responseData, {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
     });
   } catch (err) {
     console.error('[PATCH /api/rooms/[code]] Error:', err);
@@ -279,4 +344,5 @@ export async function POST(
 ) {
   return PATCH(req, context);
 }
+
 
