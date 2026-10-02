@@ -5,6 +5,9 @@ import { getSocket } from '@/lib/socket-client';
 import { parseYouTubeUrl } from '@/lib/youtube';
 import { Link, Check } from 'lucide-react';
 
+import { useRoomStore } from '@/store/roomStore';
+import { toast } from '@/store/toastStore';
+
 interface VideoUrlInputProps {
   disabled?: boolean;
 }
@@ -13,6 +16,7 @@ export function VideoUrlInput({ disabled }: VideoUrlInputProps) {
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const roomId = useRoomStore((s) => s.roomId);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,8 +32,31 @@ export function VideoUrlInput({ disabled }: VideoUrlInputProps) {
       setError('Invalid YouTube link or ID. Please check the URL.');
       return;
     }
-    const socket = getSocket();
-    socket.emit('change_video', { videoId });
+
+    // 1. Immediately apply to local store & player for instant response
+    useRoomStore.getState().setSyncState({
+      videoId,
+      playState: 'playing',
+      currentTime: 0,
+      updatedAt: Date.now(),
+    });
+
+    // 2. Emit WebSocket event if connected
+    try {
+      const socket = getSocket();
+      socket.emit('change_video', { videoId });
+    } catch (_) {}
+
+    // 3. Persist to MongoDB via REST API as fallback
+    if (roomId) {
+      fetch(`/api/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId }),
+      }).catch((err) => console.warn('[VideoUrlInput] REST update error:', err));
+    }
+
+    toast.success('Video Loaded! 🎬', 'Video playback starting...');
     setUrl('');
     setSuccess(true);
     setTimeout(() => setSuccess(false), 2000);

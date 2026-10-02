@@ -33,5 +33,13 @@ export default async function RoomPage({ params }: RoomPageProps) {
     notFound();
   }
 
-  return <RoomClient roomId={roomId.toUpperCase()} />;
+  return (
+    <RoomClient
+      roomId={roomId.toUpperCase()}
+      initialHostId={room.hostId}
+      initialVideoId={room.currentVideoId || 'VuG7ge_8I2Y'}
+      isCreator={room.hostId === userId}
+      currentUserId={userId}
+    />
+  );
 }

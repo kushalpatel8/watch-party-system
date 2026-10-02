@@ -28,14 +28,20 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+import { useEffect } from 'react';
+import { useRoomStore } from '@/store/roomStore';
 import { copyToClipboard } from '@/lib/permissions';
 
 interface RoomClientProps {
   roomId: string;
+  initialHostId?: string;
+  initialVideoId?: string | null;
+  isCreator?: boolean;
+  currentUserId?: string;
 }
 
-export function RoomClient({ roomId }: RoomClientProps) {
-  const { isSignedIn } = useAuth();
+export function RoomClient({ roomId, initialHostId, initialVideoId, isCreator, currentUserId }: RoomClientProps) {
+  const { isSignedIn, userId: authUserId } = useAuth();
   const router = useRouter();
   const [linkCopied, setLinkCopied] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
@@ -43,10 +49,41 @@ export function RoomClient({ roomId }: RoomClientProps) {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'viewers'>('chat');
 
+  // Seed initial room data from SSR so host privileges & video are instant
+  useEffect(() => {
+    const store = useRoomStore.getState();
+    const effectiveUserId = currentUserId || authUserId;
+    if (effectiveUserId) {
+      store.setMyUserId(effectiveUserId);
+    }
+    const isUserHost = isCreator || (effectiveUserId && initialHostId === effectiveUserId);
+    if (store.participants.length === 0 && effectiveUserId) {
+      store.setParticipants([
+        {
+          userId: effectiveUserId,
+          username: isUserHost ? 'You (Host)' : 'You',
+          role: isUserHost ? 'Host' : 'Participant',
+          joinedAt: Date.now(),
+        },
+      ]);
+    }
+    if (!store.syncState?.videoId) {
+      const vid = initialVideoId || 'VuG7ge_8I2Y';
+      store.setSyncState({
+        videoId: vid,
+        playState: 'paused',
+        currentTime: 0,
+        updatedAt: Date.now(),
+      });
+    }
+  }, [roomId, initialHostId, initialVideoId, isCreator, currentUserId, authUserId]);
+
   // Connect socket and sync store
   useSocket(roomId);
 
-  const { connected, canControl, myRole, isHost, pendingRequests, syncState, participants } = useRoom();
+  const { connected, canControl: hookCanControl, myRole, isHost, pendingRequests, syncState, participants } = useRoom();
+  const isEffectiveHost = isCreator || (currentUserId && initialHostId === currentUserId);
+  const canControl = hookCanControl || isEffectiveHost || participants.length <= 1;
 
   async function handleCopyRoomId() {
     const success = await copyToClipboard(roomId);

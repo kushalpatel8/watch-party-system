@@ -160,10 +160,36 @@ export function useSocket(roomId: string) {
       }
     }
 
+    store.setRoomId(roomId);
     connect();
+
+    // Fallback polling for REST-based sync if WebSockets are unavailable or in serverless environments
+    const pollInterval = setInterval(async () => {
+      if (!isMounted) return;
+      if (!socket.connected) {
+        try {
+          const res = await fetch(`/api/rooms/${roomId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.currentVideoId) {
+              const currentSync = useRoomStore.getState().syncState;
+              if (!currentSync?.videoId || currentSync.videoId !== data.currentVideoId) {
+                store.setSyncState({
+                  videoId: data.currentVideoId,
+                  playState: 'playing',
+                  currentTime: 0,
+                  updatedAt: Date.now(),
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }, 4000);
 
     return () => {
       isMounted = false;
+      clearInterval(pollInterval);
       removeListeners();
       socket.emit('leave_room', { roomId });
       disconnectSocket();
