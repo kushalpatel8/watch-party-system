@@ -10,27 +10,28 @@ export function parseYouTubeUrl(input: string): string | null {
   if (/^[A-Za-z0-9_-]{11}$/.test(str)) return str;
 
   try {
-    const url = new URL(str);
+    // Add protocol if missing
+    const formatted = str.startsWith('http') ? str : `https://${str}`;
+    const url = new URL(formatted);
 
-    // youtube.com/watch?v=
-    if (url.hostname.includes('youtube.com') && url.pathname === '/watch') {
-      return url.searchParams.get('v');
+    // youtube.com/watch?v=...
+    if (url.hostname.includes('youtube.com') || url.hostname.includes('youtube-nocookie.com')) {
+      const v = url.searchParams.get('v');
+      if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+
+      const m = url.pathname.match(/\/(embed|shorts|v|live)\/([A-Za-z0-9_-]{11})/);
+      if (m && m[2]) return m[2];
     }
 
     // youtu.be/<id>
-    if (url.hostname === 'youtu.be') {
-      const id = url.pathname.slice(1).split('?')[0];
-      return id || null;
-    }
-
-    // youtube.com/embed/<id>
-    // youtube.com/shorts/<id>
-    if (url.hostname.includes('youtube.com')) {
-      const m = url.pathname.match(/\/(embed|shorts|v)\/([A-Za-z0-9_-]{11})/);
-      if (m) return m[2];
+    if (url.hostname.includes('youtu.be')) {
+      const id = url.pathname.replace(/^\//, '').split(/[/?#&]/)[0];
+      if (id && /^[A-Za-z0-9_-]{11}$/.test(id)) return id;
     }
   } catch {
-    // not a valid URL — fall through
+    // regex fallback if URL constructor fails
+    const match = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([A-Za-z0-9_-]{11})/);
+    if (match && match[1]) return match[1];
   }
 
   return null;

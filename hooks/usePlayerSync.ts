@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useRoomStore } from '@/store/roomStore';
+import { toast } from '@/store/toastStore';
 
 declare global {
   interface Window {
@@ -14,10 +15,21 @@ const DRIFT_THRESHOLD = 1.5; // seconds
 
 function loadYTApi(): Promise<void> {
   return new Promise((resolve) => {
-    if (window.YT?.Player) {
+    if (typeof window === 'undefined') return;
+
+    if (window.YT && window.YT.Player) {
       resolve();
       return;
     }
+
+    // Polling fallback to ensure promise resolves if event already fired
+    const interval = setInterval(() => {
+      if (window.YT && window.YT.Player) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 50);
+
     const existing = document.getElementById('yt-iframe-api');
     if (!existing) {
       const tag = document.createElement('script');
@@ -25,10 +37,11 @@ function loadYTApi(): Promise<void> {
       tag.src = 'https://www.youtube.com/iframe_api';
       document.head.appendChild(tag);
     }
-    // Chain callbacks in case something else registered first
+
     const prev = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
       prev?.();
+      clearInterval(interval);
       resolve();
     };
   });
@@ -89,9 +102,12 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
         readyRef.current = false;
       }
 
+      const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
+
       playerRef.current = new window.YT.Player(innerDiv, {
         height: '100%',
         width: '100%',
+        host: 'https://www.youtube.com',
         playerVars: {
           autoplay: 0,
           controls: 0,
@@ -101,6 +117,8 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
           enablejsapi: 1,
           disablekb: 1,
           fs: 0,
+          origin,
+          widget_referrer: origin,
         },
         events: {
           onReady: () => {
@@ -118,19 +136,25 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
                   ? state.currentTime + (Date.now() - state.updatedAt) / 1000
                   : state.currentTime;
 
-              playerRef.current?.loadVideoById({
-                videoId: state.videoId,
-                startSeconds: Math.max(0, livePos),
-              });
+              try {
+                playerRef.current?.loadVideoById({
+                  videoId: state.videoId,
+                  startSeconds: Math.max(0, livePos),
+                });
+              } catch (_) {}
 
               if (state.playState === 'playing') {
-                playerRef.current?.playVideo();
+                try {
+                  playerRef.current?.playVideo();
+                } catch (_) {}
                 setTimeout(() => {
                   suppressRef.current = false;
                 }, 500);
               } else {
                 setTimeout(() => {
-                  playerRef.current?.pauseVideo();
+                  try {
+                    playerRef.current?.pauseVideo();
+                  } catch (_) {}
                   suppressRef.current = false;
                 }, 800);
               }
@@ -148,6 +172,21 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
               onPauseRef.current?.();
             } else if (e.data === YT?.PlayerState?.ENDED) {
               onPauseRef.current?.();
+            }
+          },
+          onError: (e: any) => {
+            const code = e?.data;
+            if (code === 101 || code === 150) {
+              toast.error(
+                'Embedding Disabled',
+                'The owner of this video has disabled playback on external websites. Please try another video.'
+              );
+            } else if (code === 100) {
+              toast.error('Video Not Found', 'This video has been removed or is marked as private.');
+            } else if (code === 2) {
+              toast.error('Invalid Video ID', 'The requested YouTube video ID is invalid.');
+            } else {
+              console.warn('[YouTube Player] Error event:', code);
             }
           },
         },
@@ -189,19 +228,25 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
     if (syncState.videoId && syncState.videoId !== prevVideoId.current) {
       prevVideoId.current = syncState.videoId;
       suppressRef.current = true;
-      player.loadVideoById({
-        videoId: syncState.videoId,
-        startSeconds: Math.max(0, livePos),
-      });
+      try {
+        player.loadVideoById({
+          videoId: syncState.videoId,
+          startSeconds: Math.max(0, livePos),
+        });
+      } catch (_) {}
 
       if (syncState.playState === 'playing') {
-        player.playVideo();
+        try {
+          player.playVideo();
+        } catch (_) {}
         setTimeout(() => {
           suppressRef.current = false;
         }, 500);
       } else {
         setTimeout(() => {
-          player.pauseVideo();
+          try {
+            player.pauseVideo();
+          } catch (_) {}
           suppressRef.current = false;
         }, 800);
       }
@@ -214,13 +259,19 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
 
     suppressRef.current = true;
     if (drift > DRIFT_THRESHOLD) {
-      player.seekTo(livePos, true);
+      try {
+        player.seekTo(livePos, true);
+      } catch (_) {}
     }
 
     if (syncState.playState === 'playing') {
-      player.playVideo();
+      try {
+        player.playVideo();
+      } catch (_) {}
     } else {
-      player.pauseVideo();
+      try {
+        player.pauseVideo();
+      } catch (_) {}
     }
 
     setTimeout(() => {

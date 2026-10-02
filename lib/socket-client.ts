@@ -7,12 +7,14 @@ let socket: AppSocket | null = null;
 
 export function getSocket(): AppSocket {
   if (!socket) {
-    socket = io({
+    const url = process.env.NEXT_PUBLIC_SOCKET_URL || undefined;
+    socket = io(url, {
       path: '/api/socket',
       autoConnect: false,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 10,
+      transports: ['websocket', 'polling'],
     });
   }
   return socket;
