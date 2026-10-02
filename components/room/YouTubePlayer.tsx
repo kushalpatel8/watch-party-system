@@ -23,7 +23,7 @@ function formatTime(seconds: number): string {
 
 export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePlayerProps) {
   const { canControl: hookCanControl, syncState, participants, isHost } = useRoom();
-  const effectiveCanControl = canControlProp ?? (hookCanControl || isHost || participants.length <= 1);
+  const effectiveCanControl = canControlProp !== undefined ? canControlProp : (hookCanControl || isHost);
   const [autoplayClicked, setAutoplayClicked] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -236,22 +236,26 @@ export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePla
                 playerRef.current.playVideo?.();
               } catch (_) {}
             }
-            useRoomStore.getState().setSyncState({
-              videoId: syncState.videoId,
-              playState: 'playing',
-              currentTime: playerRef.current?.getCurrentTime?.() ?? 0,
-              updatedAt: Date.now(),
-            });
-            try {
-              socket.emit('play', {});
-            } catch (_) {}
+            if (effectiveCanControl) {
+              useRoomStore.getState().setSyncState({
+                videoId: syncState.videoId,
+                playState: 'playing',
+                currentTime: playerRef.current?.getCurrentTime?.() ?? 0,
+                updatedAt: Date.now(),
+              });
+              try {
+                socket.emit('play', {});
+              } catch (_) {}
+            }
           }}
           className="absolute inset-0 flex flex-col items-center justify-center gap-2 sm:gap-3 bg-black/60 z-20 group transition-all hover:bg-black/50 cursor-pointer"
         >
           <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center group-hover:scale-110 transition-all shadow-[0_0_25px_rgba(245,158,11,0.4)] animate-pulse-ring">
             <Play className="w-6 h-6 sm:w-8 sm:h-8 text-amber-300 ml-0.5 sm:ml-1 fill-amber-300" />
           </div>
-          <p className="text-white/90 text-xs sm:text-sm font-medium tracking-wide">Click to join playback</p>
+          <p className="text-white/90 text-xs sm:text-sm font-medium tracking-wide">
+            {effectiveCanControl ? 'Click to start playback' : 'Click to join live playback'}
+          </p>
         </button>
       )}
 
@@ -274,7 +278,8 @@ export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePla
             value={currentTime}
             onChange={handleSeek}
             disabled={!effectiveCanControl}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-default"
+            title={effectiveCanControl ? 'Seek position' : 'Only Host & Moderators can seek'}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
           />
           {/* Thumb circle */}
           <div
@@ -292,9 +297,15 @@ export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePla
               onClick={handleTogglePlay}
               disabled={!effectiveCanControl}
               className={`p-1 sm:p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-white/10 transition-all active:scale-90 ${
-                !effectiveCanControl ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                !effectiveCanControl ? 'opacity-40 cursor-not-allowed text-stone-500' : 'cursor-pointer'
               }`}
-              title={isPlaying ? 'Pause' : 'Play'}
+              title={
+                !effectiveCanControl
+                  ? 'Only Host and Moderators can control playback'
+                  : isPlaying
+                  ? 'Pause'
+                  : 'Play'
+              }
             >
               {isPlaying ? <Pause className="w-4 h-4 sm:w-5 sm:h-5" /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-amber-400" />}
             </button>

@@ -1,7 +1,8 @@
 import { redirect, notFound } from 'next/navigation';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { connectToDatabase } from '@/lib/db';
 import { Room } from '@/models/Room';
+import { User } from '@/models/User';
 import { RoomClient } from '@/components/room/RoomClient';
 import type { Metadata } from 'next';
 
@@ -21,6 +22,7 @@ export async function generateMetadata({ params }: RoomPageProps): Promise<Metad
 
 export default async function RoomPage({ params }: RoomPageProps) {
   const { userId } = await auth();
+  const user = await currentUser();
   const { roomId } = await params;
 
   if (!userId) {
@@ -33,11 +35,55 @@ export default async function RoomPage({ params }: RoomPageProps) {
     notFound();
   }
 
+  // Register current user into User collection and Room.members
+  const username =
+    user?.username ||
+    `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() ||
+    user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] ||
+    'User';
+  const imageUrl = user?.imageUrl || '';
+
+  await User.findOneAndUpdate(
+    { clerkId: userId },
+    { username, imageUrl },
+    { upsert: true, new: true }
+  ).catch(() => {});
+
+  const memberIdx = room.members.findIndex((m: { userId: string }) => m.userId === userId);
+  if (memberIdx === -1) {
+    const role = room.hostId === userId || room.members.length === 0 ? 'Host' : 'Participant';
+    room.members.push({ userId, role });
+    room.lastActiveAt = new Date();
+    await room.save().catch(() => {});
+  }
+
+  // Fetch all participant profiles from database
+  const memberIds = room.members.map((m: { userId: string }) => m.userId);
+  const users = await User.find({ clerkId: { $in: memberIds } }).lean();
+  const userMap = new Map(users.map((u: any) => [u.clerkId, u]));
+
+  const initialParticipants = room.members.map((m: { userId: string; role: string }) => {
+    const isHost = m.userId === room.hostId || m.role === 'Host';
+    const profile = userMap.get(m.userId);
+    const uname =
+      profile?.username ||
+      (m.userId === userId ? username : isHost ? 'Host' : `User ${m.userId.slice(-4)}`);
+
+    return {
+      userId: m.userId,
+      username: uname,
+      imageUrl: profile?.imageUrl || (m.userId === userId ? imageUrl : ''),
+      role: isHost ? ('Host' as const) : ((m.role as any) || ('Participant' as const)),
+      joinedAt: room.createdAt ? new Date(room.createdAt).getTime() : Date.now(),
+    };
+  });
+
   return (
     <RoomClient
       roomId={roomId.toUpperCase()}
       initialHostId={room.hostId}
       initialVideoId={room.currentVideoId || 'VuG7ge_8I2Y'}
+      initialParticipants={initialParticipants}
       isCreator={room.hostId === userId}
       currentUserId={userId}
     />

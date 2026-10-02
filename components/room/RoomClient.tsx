@@ -31,16 +31,25 @@ import {
 import { useEffect } from 'react';
 import { useRoomStore } from '@/store/roomStore';
 import { copyToClipboard } from '@/lib/permissions';
+import type { ParticipantInfo } from '@/types/events';
 
 interface RoomClientProps {
   roomId: string;
   initialHostId?: string;
   initialVideoId?: string | null;
+  initialParticipants?: ParticipantInfo[];
   isCreator?: boolean;
   currentUserId?: string;
 }
 
-export function RoomClient({ roomId, initialHostId, initialVideoId, isCreator, currentUserId }: RoomClientProps) {
+export function RoomClient({
+  roomId,
+  initialHostId,
+  initialVideoId,
+  initialParticipants,
+  isCreator,
+  currentUserId,
+}: RoomClientProps) {
   const { isSignedIn, userId: authUserId } = useAuth();
   const router = useRouter();
   const [linkCopied, setLinkCopied] = useState(false);
@@ -49,15 +58,17 @@ export function RoomClient({ roomId, initialHostId, initialVideoId, isCreator, c
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'viewers'>('chat');
 
-  // Seed initial room data from SSR so host privileges & video are instant
+  // Seed initial room data from SSR so all participants, host privileges & video are instant
   useEffect(() => {
     const store = useRoomStore.getState();
     const effectiveUserId = currentUserId || authUserId;
     if (effectiveUserId) {
       store.setMyUserId(effectiveUserId);
     }
-    const isUserHost = isCreator || (effectiveUserId && initialHostId === effectiveUserId);
-    if (store.participants.length === 0 && effectiveUserId) {
+    if (initialParticipants && initialParticipants.length > 0) {
+      store.setParticipants(initialParticipants);
+    } else if (store.participants.length === 0 && effectiveUserId) {
+      const isUserHost = isCreator || (effectiveUserId && initialHostId === effectiveUserId);
       store.setParticipants([
         {
           userId: effectiveUserId,
@@ -76,14 +87,20 @@ export function RoomClient({ roomId, initialHostId, initialVideoId, isCreator, c
         updatedAt: Date.now(),
       });
     }
-  }, [roomId, initialHostId, initialVideoId, isCreator, currentUserId, authUserId]);
+  }, [roomId, initialHostId, initialVideoId, isCreator, currentUserId, authUserId, initialParticipants]);
 
   // Connect socket and sync store
   useSocket(roomId);
 
-  const { connected, canControl: hookCanControl, myRole, isHost, pendingRequests, syncState, participants } = useRoom();
-  const isEffectiveHost = isCreator || (currentUserId && initialHostId === currentUserId);
-  const canControl = hookCanControl || isEffectiveHost || participants.length <= 1;
+  const { connected, canControl: hookCanControl, myRole, isHost: hookIsHost, isModerator: hookIsMod, pendingRequests, syncState, participants } = useRoom();
+  const effectiveUserId = currentUserId || authUserId;
+  const me = participants.find((p) => p.userId === effectiveUserId);
+  const isEffectiveHost = isCreator || (effectiveUserId && initialHostId === effectiveUserId) || me?.role === 'Host' || hookIsHost;
+  const isEffectiveModerator = me?.role === 'Moderator' || hookIsMod;
+
+  // STRICT RULE: Only Host and Moderator can control playback and load videos
+  const canControl = isEffectiveHost || isEffectiveModerator;
+  const effectiveRole = isEffectiveHost ? 'Host' : isEffectiveModerator ? 'Moderator' : 'Participant';
 
   async function handleCopyRoomId() {
     const success = await copyToClipboard(roomId);
@@ -229,26 +246,31 @@ export function RoomClient({ roomId, initialHostId, initialVideoId, isCreator, c
               </div>
             )}
 
-            {/* Video URL Input or Request Change Button */}
-            {canControl || !syncState?.videoId || participants.length <= 1 ? (
+            {/* Video URL Input for Host/Moderator, or Request Change for Viewers */}
+            {canControl ? (
               <VideoUrlInput />
             ) : (
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-stone-100/80 dark:bg-[#1e293b]/80 rounded-xl border border-stone-200 dark:border-white/10 text-xs">
+                <span className="text-[11px] font-medium text-stone-600 dark:text-white/60 truncate">
+                  Playback controlled by Host & Moderators ({effectiveRole})
+                </span>
                 <button
                   id="request-change-btn"
                   onClick={() => {
                     const url = prompt('Paste YouTube URL to request:');
                     if (!url) return;
-                    getSocket().emit('request_change', {
-                      type: 'change_video',
-                      payload: { videoId: url.trim() },
-                    });
+                    try {
+                      getSocket().emit('request_change', {
+                        type: 'change_video',
+                        payload: { videoId: url.trim() },
+                      });
+                    } catch (_) {}
                     toast.request('Request Sent 📨', 'Your video change request was sent to the Host.');
                   }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-[#1e293b] hover:bg-stone-200 dark:hover:bg-[#2d3c56] text-xs font-semibold text-stone-800 dark:text-white/90 hover:text-stone-900 dark:hover:text-white transition-all border border-stone-200 dark:border-white/10 cursor-pointer shadow-xs active:scale-95"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-[#253248] hover:bg-stone-200 dark:hover:bg-[#2d3c56] text-[11px] font-semibold text-stone-800 dark:text-white transition-all border border-stone-200 dark:border-white/10 cursor-pointer shadow-xs active:scale-95 shrink-0"
                 >
-                  <Send className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  Request a video change
+                  <Send className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                  Request Video
                 </button>
               </div>
             )}
@@ -422,7 +444,7 @@ export function RoomClient({ roomId, initialHostId, initialVideoId, isCreator, c
             </div>
 
             <div className="text-xs text-stone-600 dark:text-white/70 leading-relaxed mb-6">
-              {isHost ? (
+              {isEffectiveHost ? (
                 <div className="text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 p-3 rounded-xl">
                   <AlertTriangle className="w-4 h-4 text-[#d97706] dark:text-amber-400 shrink-0 mt-0.5" />
                   <span>

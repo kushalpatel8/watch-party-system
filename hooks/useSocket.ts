@@ -168,9 +168,12 @@ export function useSocket(roomId: string) {
       if (!isMounted) return;
       if (!socket.connected) {
         try {
-          const res = await fetch(`/api/rooms/${roomId}`);
+          const res = await fetch(`/api/rooms/${roomId}?userId=${encodeURIComponent(userId)}`);
           if (res.ok) {
             const data = await res.json();
+            if (data?.participants && Array.isArray(data.participants)) {
+              store.setParticipants(data.participants);
+            }
             if (data?.currentVideoId) {
               const currentSync = useRoomStore.getState().syncState;
               if (!currentSync?.videoId || currentSync.videoId !== data.currentVideoId) {
@@ -185,7 +188,7 @@ export function useSocket(roomId: string) {
           }
         } catch (_) {}
       }
-    }, 4000);
+    }, 3000);
 
     return () => {
       isMounted = false;
