@@ -1,6 +1,7 @@
 'use client';
 
 import { useRoom } from '@/hooks/useRoom';
+import { useRoomStore } from '@/store/roomStore';
 import { getSocket } from '@/lib/socket-client';
 import { Crown, Star, Plus, X, UserMinus, Shield, LogOut } from 'lucide-react';
 import type { ParticipantInfo } from '@/types/events';
@@ -11,19 +12,76 @@ interface ParticipantListProps {
 }
 
 export function ParticipantList({ onLeave }: ParticipantListProps) {
-  const { participants, me, isHost, isModerator } = useRoom();
+  const { participants, me, isHost, isModerator, roomId } = useRoom();
   const socket = getSocket();
 
   function assignRole(userId: string, role: Role) {
-    socket.emit('assign_role', { userId, role });
+    try {
+      socket.emit('assign_role', { userId, role });
+    } catch (_) {}
+
+    if (roomId) {
+      fetch(`/api/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignRole: role, targetUserId: userId }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.participants) {
+              useRoomStore.getState().setParticipants(data.participants);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   function removeParticipant(userId: string) {
-    socket.emit('remove_participant', { userId });
+    try {
+      socket.emit('remove_participant', { userId });
+    } catch (_) {}
+
+    if (roomId) {
+      fetch(`/api/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeUserId: userId }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.participants) {
+              useRoomStore.getState().setParticipants(data.participants);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   function transferHost(userId: string) {
-    socket.emit('transfer_host', { userId });
+    try {
+      socket.emit('transfer_host', { userId });
+    } catch (_) {}
+
+    if (roomId) {
+      fetch(`/api/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transferHostTo: userId }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.participants) {
+              useRoomStore.getState().setParticipants(data.participants);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   // Sort: Host first, then Moderators, then Participants

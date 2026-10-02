@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket-client';
 import { useRoomStore } from '@/store/roomStore';
 import { toast } from '@/store/toastStore';
@@ -12,6 +12,7 @@ import { toast } from '@/store/toastStore';
  */
 export function useSocket(roomId: string) {
   const { getToken, userId } = useAuth();
+  const { user } = useUser();
   const store = useRoomStore();
   const joined = useRef(false);
 
@@ -168,7 +169,11 @@ export function useSocket(roomId: string) {
       if (!isMounted) return;
       if (!socket.connected) {
         try {
-          const res = await fetch(`/api/rooms/${roomId}?userId=${encodeURIComponent(userId)}`);
+          const uname = user?.username || user?.firstName || 'User';
+          const imgUrl = user?.imageUrl || '';
+          const res = await fetch(
+            `/api/rooms/${roomId}?userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(uname)}&imageUrl=${encodeURIComponent(imgUrl)}`
+          );
           if (res.ok) {
             const data = await res.json();
             if (data?.participants && Array.isArray(data.participants)) {
@@ -204,10 +209,12 @@ export function useSocket(roomId: string) {
       isMounted = false;
       clearInterval(pollInterval);
       removeListeners();
-      socket.emit('leave_room', { roomId });
+      try {
+        socket.emit('leave_room', { roomId });
+      } catch (_) {}
       disconnectSocket();
       store.reset();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, roomId]);
+  }, [userId, roomId, user]);
 }

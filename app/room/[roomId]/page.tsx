@@ -49,10 +49,31 @@ export default async function RoomPage({ params }: RoomPageProps) {
     { upsert: true, new: true }
   ).catch(() => {});
 
+  let isModified = false;
   const memberIdx = room.members.findIndex((m: { userId: string }) => m.userId === userId);
   if (memberIdx === -1) {
     const role = room.hostId === userId || room.members.length === 0 ? 'Host' : 'Participant';
     room.members.push({ userId, role });
+    if (role === 'Host' || !room.hostId) {
+      room.hostId = userId;
+    }
+    isModified = true;
+  }
+
+  // Self-healing automated succession: If host left or is not in members, transfer to Moderator 1 or next viewer
+  const hostExists = room.members.some((m: { userId: string; role: string }) => m.userId === room.hostId);
+  if (!hostExists && room.members.length > 0) {
+    const mods = room.members.filter((m: any) => m.role === 'Moderator');
+    const viewers = room.members.filter((m: any) => m.role === 'Participant');
+    const newHostMember = mods[0] || viewers[0] || room.members[0];
+    if (newHostMember) {
+      newHostMember.role = 'Host';
+      room.hostId = newHostMember.userId;
+      isModified = true;
+    }
+  }
+
+  if (isModified) {
     room.lastActiveAt = new Date();
     await room.save().catch(() => {});
   }

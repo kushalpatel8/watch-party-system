@@ -99,12 +99,34 @@ export function RoomClient({
   const { connected, canControl: hookCanControl, myRole, isHost: hookIsHost, isModerator: hookIsMod, pendingRequests, syncState, participants } = useRoom();
   const effectiveUserId = currentUserId || authUserId;
   const me = participants.find((p) => p.userId === effectiveUserId);
-  const isEffectiveHost = isCreator || (effectiveUserId && initialHostId === effectiveUserId) || me?.role === 'Host' || hookIsHost;
-  const isEffectiveModerator = me?.role === 'Moderator' || hookIsMod;
+  const isEffectiveHost = me
+    ? me.role === 'Host'
+    : isCreator || (Boolean(effectiveUserId) && initialHostId === effectiveUserId) || hookIsHost;
+  const isEffectiveModerator = me ? me.role === 'Moderator' : hookIsMod;
 
   // STRICT RULE: Only Host and Moderator can control playback and load videos
   const canControl = isEffectiveHost || isEffectiveModerator;
   const effectiveRole = isEffectiveHost ? 'Host' : isEffectiveModerator ? 'Moderator' : 'Participant';
+
+  // Send leave notification on tab/window close
+  useEffect(() => {
+    const handleUnload = () => {
+      if (effectiveUserId && roomId) {
+        try {
+          fetch(`/api/rooms/${roomId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leaveUserId: effectiveUserId }),
+            keepalive: true,
+          }).catch(() => {});
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('pagehide', handleUnload);
+    return () => {
+      window.removeEventListener('pagehide', handleUnload);
+    };
+  }, [roomId, effectiveUserId]);
 
   async function handleCopyRoomId() {
     const success = await copyToClipboard(roomId);
@@ -125,12 +147,22 @@ export function RoomClient({
     }
   }
 
-  function handleLeaveRoom() {
+  async function handleLeaveRoom() {
     try {
       const socket = getSocket();
       socket.emit('leave_room', { roomId });
     } catch (err) {
       console.error('Error emitting leave_room:', err);
+    }
+    if (effectiveUserId && roomId) {
+      try {
+        fetch(`/api/rooms/${roomId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leaveUserId: effectiveUserId }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch (_) {}
     }
     router.push('/');
   }

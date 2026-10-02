@@ -35,10 +35,26 @@ export async function GET(
     if (memberIdx === -1) {
       const role = room.hostId === userId || room.members.length === 0 ? 'Host' : 'Participant';
       room.members.push({ userId, role });
+      if (role === 'Host' || !room.hostId) {
+        room.hostId = userId;
+      }
       isModified = true;
     }
     room.lastActiveAt = new Date();
     isModified = true;
+  }
+
+  // Self-healing automated succession: If host left or is not in members, transfer to Moderator 1 or next viewer
+  const hostExists = room.members.some((m: { userId: string; role: string }) => m.userId === room.hostId);
+  if (!hostExists && room.members.length > 0) {
+    const mods = room.members.filter((m: any) => m.role === 'Moderator');
+    const viewers = room.members.filter((m: any) => m.role === 'Participant');
+    const newHostMember = mods[0] || viewers[0] || room.members[0];
+    if (newHostMember) {
+      newHostMember.role = 'Host';
+      room.hostId = newHostMember.userId;
+      isModified = true;
+    }
   }
 
   if (isModified) {
@@ -115,13 +131,57 @@ export async function PATCH(
       const hostMember = room.members.find((m: any) => m.userId === body.hostId);
       if (hostMember) hostMember.role = 'Host';
     }
+    if (body.transferHostTo) {
+      const oldHost = room.members.find((m: any) => m.userId === room.hostId);
+      if (oldHost) oldHost.role = 'Moderator';
+      let newHost = room.members.find((m: any) => m.userId === body.transferHostTo);
+      if (newHost) {
+        newHost.role = 'Host';
+      } else {
+        room.members.push({ userId: body.transferHostTo, role: 'Host' });
+      }
+      room.hostId = body.transferHostTo;
+    }
     if (body.assignRole && body.targetUserId) {
       const target = room.members.find((m: any) => m.userId === body.targetUserId);
-      if (target) target.role = body.assignRole;
+      if (target) {
+        target.role = body.assignRole;
+        if (body.assignRole === 'Host') {
+          const oldHost = room.members.find((m: any) => m.userId === room.hostId && m.userId !== body.targetUserId);
+          if (oldHost) oldHost.role = 'Moderator';
+          room.hostId = body.targetUserId;
+        }
+      }
     }
-    if (body.removeUserId) {
-      room.members = room.members.filter((m: any) => m.userId !== body.removeUserId);
+    if (body.leaveUserId || body.removeUserId) {
+      const targetId = body.leaveUserId || body.removeUserId;
+      const wasHost = room.hostId === targetId;
+      room.members = room.members.filter((m: any) => m.userId !== targetId);
+
+      // Automated host succession: If the leaving user was the Host, transfer to Moderator 1, then next viewer
+      if (wasHost && room.members.length > 0) {
+        const mods = room.members.filter((m: any) => m.role === 'Moderator');
+        const viewers = room.members.filter((m: any) => m.role === 'Participant');
+        const nextHost = mods[0] || viewers[0] || room.members[0];
+        if (nextHost) {
+          nextHost.role = 'Host';
+          room.hostId = nextHost.userId;
+        }
+      }
     }
+
+    // Self-healing automated succession fallback: If host is not in members and members exist
+    const hostExists = room.members.some((m: any) => m.userId === room.hostId);
+    if (!hostExists && room.members.length > 0) {
+      const mods = room.members.filter((m: any) => m.role === 'Moderator');
+      const viewers = room.members.filter((m: any) => m.role === 'Participant');
+      const nextHost = mods[0] || viewers[0] || room.members[0];
+      if (nextHost) {
+        nextHost.role = 'Host';
+        room.hostId = nextHost.userId;
+      }
+    }
+
     room.lastActiveAt = new Date();
     await room.save();
 
@@ -163,3 +223,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'Failed to update room' }, { status: 500 });
   }
 }
+
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ code: string }> }
+) {
+  return PATCH(req, context);
+}
+
