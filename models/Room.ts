@@ -4,6 +4,9 @@ export interface IRoom extends Document {
   code: string;
   hostId: string;
   currentVideoId: string | null;
+  playState: 'playing' | 'paused';
+  currentTime: number;
+  updatedAt: number;
   createdAt: Date;
   lastActiveAt: Date;
   members: Array<{ userId: string; role: string }>;
@@ -13,6 +16,9 @@ const RoomSchema = new Schema<IRoom>({
   code: { type: String, required: true, unique: true, uppercase: true, trim: true },
   hostId: { type: String, required: true },
   currentVideoId: { type: String, default: null },
+  playState: { type: String, enum: ['playing', 'paused'], default: 'paused' },
+  currentTime: { type: Number, default: 0 },
+  updatedAt: { type: Number, default: () => Date.now() },
   createdAt: { type: Date, default: Date.now },
   lastActiveAt: { type: Date, default: Date.now },
   members: [

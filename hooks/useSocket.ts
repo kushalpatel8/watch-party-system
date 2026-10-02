@@ -174,12 +174,22 @@ export function useSocket(roomId: string) {
             if (data?.participants && Array.isArray(data.participants)) {
               store.setParticipants(data.participants);
             }
-            if (data?.currentVideoId) {
+            if (data?.syncState) {
+              const currentSync = useRoomStore.getState().syncState;
+              const incoming = data.syncState;
+              const isVideoDiff = incoming.videoId && incoming.videoId !== currentSync?.videoId;
+              const isPlayStateDiff = incoming.playState !== currentSync?.playState;
+              const isNewer = (incoming.updatedAt || 0) >= (currentSync?.updatedAt || 0);
+
+              if (isVideoDiff || isPlayStateDiff || isNewer) {
+                store.setSyncState(incoming);
+              }
+            } else if (data?.currentVideoId) {
               const currentSync = useRoomStore.getState().syncState;
               if (!currentSync?.videoId || currentSync.videoId !== data.currentVideoId) {
                 store.setSyncState({
                   videoId: data.currentVideoId,
-                  playState: 'playing',
+                  playState: 'paused',
                   currentTime: 0,
                   updatedAt: Date.now(),
                 });
@@ -188,7 +198,7 @@ export function useSocket(roomId: string) {
           }
         } catch (_) {}
       }
-    }, 3000);
+    }, 1500);
 
     return () => {
       isMounted = false;

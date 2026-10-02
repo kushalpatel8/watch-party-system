@@ -78,11 +78,19 @@ export default async function RoomPage({ params }: RoomPageProps) {
     };
   });
 
+  const initialSyncState = {
+    videoId: room.currentVideoId || 'VuG7ge_8I2Y',
+    playState: (room.playState as 'playing' | 'paused') || 'paused',
+    currentTime: room.currentTime || 0,
+    updatedAt: room.updatedAt || Date.now(),
+  };
+
   return (
     <RoomClient
       roomId={roomId.toUpperCase()}
       initialHostId={room.hostId}
       initialVideoId={room.currentVideoId || 'VuG7ge_8I2Y'}
+      initialSyncState={initialSyncState}
       initialParticipants={initialParticipants}
       isCreator={room.hostId === userId}
       currentUserId={userId}

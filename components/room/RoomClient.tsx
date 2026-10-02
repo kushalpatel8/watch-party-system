@@ -31,12 +31,13 @@ import {
 import { useEffect } from 'react';
 import { useRoomStore } from '@/store/roomStore';
 import { copyToClipboard } from '@/lib/permissions';
-import type { ParticipantInfo } from '@/types/events';
+import type { ParticipantInfo, SyncState } from '@/types/events';
 
 interface RoomClientProps {
   roomId: string;
   initialHostId?: string;
   initialVideoId?: string | null;
+  initialSyncState?: SyncState;
   initialParticipants?: ParticipantInfo[];
   isCreator?: boolean;
   currentUserId?: string;
@@ -46,6 +47,7 @@ export function RoomClient({
   roomId,
   initialHostId,
   initialVideoId,
+  initialSyncState,
   initialParticipants,
   isCreator,
   currentUserId,
@@ -78,7 +80,9 @@ export function RoomClient({
         },
       ]);
     }
-    if (!store.syncState?.videoId) {
+    if (initialSyncState) {
+      store.setSyncState(initialSyncState);
+    } else if (!store.syncState?.videoId) {
       const vid = initialVideoId || 'VuG7ge_8I2Y';
       store.setSyncState({
         videoId: vid,
@@ -87,7 +91,7 @@ export function RoomClient({
         updatedAt: Date.now(),
       });
     }
-  }, [roomId, initialHostId, initialVideoId, isCreator, currentUserId, authUserId, initialParticipants]);
+  }, [roomId, initialHostId, initialVideoId, initialSyncState, isCreator, currentUserId, authUserId, initialParticipants]);
 
   // Connect socket and sync store
   useSocket(roomId);

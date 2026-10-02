@@ -66,12 +66,20 @@ export async function GET(
     };
   });
 
+  const syncState = {
+    videoId: room.currentVideoId || 'VuG7ge_8I2Y',
+    playState: room.playState || 'paused',
+    currentTime: room.currentTime || 0,
+    updatedAt: room.updatedAt || Date.now(),
+  };
+
   return NextResponse.json({
     code: room.code,
     hostId: room.hostId,
     currentVideoId: room.currentVideoId,
     memberCount: room.members.length,
     participants,
+    syncState,
     createdAt: room.createdAt,
     lastActiveAt: room.lastActiveAt,
   });
@@ -86,15 +94,6 @@ export async function PATCH(
     const body = await req.json();
     await connectToDatabase();
 
-    const update: any = { lastActiveAt: new Date() };
-    if (body.videoId) {
-      update.currentVideoId = body.videoId;
-    }
-    if (body.hostId) {
-      update.hostId = body.hostId;
-    }
-
-    // Role assignment or removal
     let room = await Room.findOne({ code: code.toUpperCase() });
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
@@ -102,6 +101,14 @@ export async function PATCH(
 
     if (body.videoId) {
       room.currentVideoId = body.videoId;
+    }
+    if (body.playState && (body.playState === 'playing' || body.playState === 'paused')) {
+      room.playState = body.playState;
+      room.updatedAt = Date.now();
+    }
+    if (typeof body.currentTime === 'number') {
+      room.currentTime = body.currentTime;
+      room.updatedAt = Date.now();
     }
     if (body.hostId) {
       room.hostId = body.hostId;
@@ -135,12 +142,20 @@ export async function PATCH(
       };
     });
 
+    const syncState = {
+      videoId: room.currentVideoId || 'VuG7ge_8I2Y',
+      playState: room.playState || 'paused',
+      currentTime: room.currentTime || 0,
+      updatedAt: room.updatedAt || Date.now(),
+    };
+
     return NextResponse.json({
       code: room.code,
       hostId: room.hostId,
       currentVideoId: room.currentVideoId,
       memberCount: room.members.length,
       participants,
+      syncState,
       lastActiveAt: room.lastActiveAt,
     });
   } catch (err) {

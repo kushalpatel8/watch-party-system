@@ -97,6 +97,18 @@ export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePla
       try {
         socket.emit('pause', {});
       } catch (_) {}
+
+      // 4. Persist to MongoDB so all polling participants pause in sync
+      if (roomId) {
+        fetch(`/api/rooms/${roomId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playState: 'paused',
+            currentTime: curTime,
+          }),
+        }).catch(() => {});
+      }
     } else {
       // 1. Direct player play on user gesture
       try {
@@ -118,6 +130,18 @@ export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePla
       try {
         socket.emit('play', {});
       } catch (_) {}
+
+      // 4. Persist to MongoDB so all polling participants play in sync
+      if (roomId) {
+        fetch(`/api/rooms/${roomId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playState: 'playing',
+            currentTime: curTime,
+          }),
+        }).catch(() => {});
+      }
     }
   }
 
@@ -146,6 +170,17 @@ export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePla
     try {
       socket.emit('seek', { time: target });
     } catch (_) {}
+
+    // 4. Persist seek to MongoDB so all polling participants seek in sync
+    if (roomId) {
+      fetch(`/api/rooms/${roomId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentTime: target,
+        }),
+      }).catch(() => {});
+    }
   }
 
   function handleVolumeChange(e: React.ChangeEvent<HTMLInputElement>) {
