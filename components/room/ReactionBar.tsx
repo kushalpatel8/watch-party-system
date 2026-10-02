@@ -1,13 +1,31 @@
 'use client';
 
 import { useRoom } from '@/hooks/useRoom';
+import { useRoomStore } from '@/store/roomStore';
 import { getSocket } from '@/lib/socket-client';
 
 const EMOJIS = ['👍', '❤️', '😂', '😮', '🔥', '🎉', '👎', '💯'];
 
 export function ReactionBar() {
-  const { reactions } = useRoom();
+  const { reactions, me, myUserId } = useRoom();
   const socket = getSocket();
+
+  function triggerReaction(emoji: string) {
+    const userId = me?.userId || myUserId || 'me';
+    const username = me?.username || 'You';
+    const timestamp = Date.now();
+
+    // 1. Local optimistic display
+    useRoomStore.getState().addReaction({ userId, username, emoji, timestamp });
+    setTimeout(() => {
+      useRoomStore.getState().removeReaction(`${userId}-${timestamp}`);
+    }, 3000);
+
+    // 2. Socket emission
+    try {
+      socket.emit('reaction', { emoji });
+    } catch (_) {}
+  }
 
   return (
     <div className="relative max-w-full">
@@ -30,7 +48,7 @@ export function ReactionBar() {
           <button
             key={emoji}
             id={`reaction-${emoji}`}
-            onClick={() => socket.emit('reaction', { emoji })}
+            onClick={() => triggerReaction(emoji)}
             className="text-base sm:text-xl hover:scale-125 active:scale-125 transition-transform duration-100 p-1 sm:p-1 rounded-lg hover:bg-amber-100/50 dark:hover:bg-white/5 cursor-pointer shrink-0"
             title={emoji}
           >

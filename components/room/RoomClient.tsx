@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth, UserButton } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/hooks/useSocket';
@@ -28,7 +28,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-import { useEffect } from 'react';
 import { useRoomStore } from '@/store/roomStore';
 import { copyToClipboard } from '@/lib/permissions';
 import type { ParticipantInfo, SyncState } from '@/types/events';
@@ -39,6 +38,7 @@ interface RoomClientProps {
   initialVideoId?: string | null;
   initialSyncState?: SyncState;
   initialParticipants?: ParticipantInfo[];
+  initialMessages?: Array<{ userId: string; username: string; text: string; timestamp: number }>;
   isCreator?: boolean;
   currentUserId?: string;
 }
@@ -49,6 +49,7 @@ export function RoomClient({
   initialVideoId,
   initialSyncState,
   initialParticipants,
+  initialMessages,
   isCreator,
   currentUserId,
 }: RoomClientProps) {
@@ -60,8 +61,12 @@ export function RoomClient({
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [mobileTab, setMobileTab] = useState<'chat' | 'viewers'>('chat');
 
-  // Seed initial room data from SSR so all participants, host privileges & video are instant
+  // Seed initial room data from SSR once on mount so all participants, host privileges & video are instant
+  const hasSeededRef = useRef(false);
   useEffect(() => {
+    if (hasSeededRef.current) return;
+    hasSeededRef.current = true;
+
     const store = useRoomStore.getState();
     const effectiveUserId = currentUserId || authUserId;
     if (effectiveUserId) {
@@ -80,6 +85,9 @@ export function RoomClient({
         },
       ]);
     }
+    if (initialMessages && initialMessages.length > 0) {
+      store.setChatMessages(initialMessages);
+    }
     if (initialSyncState) {
       store.setSyncState(initialSyncState);
     } else if (!store.syncState?.videoId) {
@@ -91,7 +99,7 @@ export function RoomClient({
         updatedAt: Date.now(),
       });
     }
-  }, [roomId, initialHostId, initialVideoId, initialSyncState, isCreator, currentUserId, authUserId, initialParticipants]);
+  }, [roomId, initialHostId, initialVideoId, initialSyncState, isCreator, currentUserId, authUserId, initialParticipants, initialMessages]);
 
   // Connect socket and sync store
   useSocket(roomId);
@@ -122,9 +130,9 @@ export function RoomClient({
         } catch (_) {}
       }
     };
-    window.addEventListener('pagehide', handleUnload);
+    window.addEventListener('beforeunload', handleUnload);
     return () => {
-      window.removeEventListener('pagehide', handleUnload);
+      window.removeEventListener('beforeunload', handleUnload);
     };
   }, [roomId, effectiveUserId]);
 

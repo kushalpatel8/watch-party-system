@@ -89,6 +89,14 @@ export async function GET(
     updatedAt: room.updatedAt || Date.now(),
   };
 
+  const messages = (room.messages || []).map((m: any) => ({
+    id: m.id || `${m.userId}-${m.timestamp}`,
+    userId: m.userId,
+    username: m.username,
+    text: m.text,
+    timestamp: m.timestamp,
+  }));
+
   return NextResponse.json({
     code: room.code,
     hostId: room.hostId,
@@ -96,6 +104,7 @@ export async function GET(
     memberCount: room.members.length,
     participants,
     syncState,
+    messages,
     createdAt: room.createdAt,
     lastActiveAt: room.lastActiveAt,
   });
@@ -170,6 +179,37 @@ export async function PATCH(
       }
     }
 
+    // Handle chat message persistence with deduplication
+    if (body.chatMessage && body.chatMessage.text) {
+      const trimmed = String(body.chatMessage.text).trim().slice(0, 500);
+      if (trimmed) {
+        if (!room.messages) room.messages = [];
+        const msgId = body.chatMessage.id || `${body.chatMessage.userId}-${body.chatMessage.timestamp || Date.now()}`;
+        const msgTs = body.chatMessage.timestamp || Date.now();
+
+        const isDuplicateInDb = room.messages.some(
+          (m: any) =>
+            (Boolean(m.id && msgId) && m.id === msgId) ||
+            (m.userId === body.chatMessage.userId &&
+              m.text === trimmed &&
+              Math.abs((m.timestamp || 0) - msgTs) < 5000)
+        );
+
+        if (!isDuplicateInDb) {
+          room.messages.push({
+            id: msgId,
+            userId: body.chatMessage.userId || 'user',
+            username: body.chatMessage.username || 'User',
+            text: trimmed,
+            timestamp: msgTs,
+          });
+          if (room.messages.length > 200) {
+            room.messages = room.messages.slice(-200);
+          }
+        }
+      }
+    }
+
     // Self-healing automated succession fallback: If host is not in members and members exist
     const hostExists = room.members.some((m: any) => m.userId === room.hostId);
     if (!hostExists && room.members.length > 0) {
@@ -209,6 +249,14 @@ export async function PATCH(
       updatedAt: room.updatedAt || Date.now(),
     };
 
+    const messages = (room.messages || []).map((m: any) => ({
+      id: m.id || `${m.userId}-${m.timestamp}`,
+      userId: m.userId,
+      username: m.username,
+      text: m.text,
+      timestamp: m.timestamp,
+    }));
+
     return NextResponse.json({
       code: room.code,
       hostId: room.hostId,
@@ -216,6 +264,7 @@ export async function PATCH(
       memberCount: room.members.length,
       participants,
       syncState,
+      messages,
       lastActiveAt: room.lastActiveAt,
     });
   } catch (err) {

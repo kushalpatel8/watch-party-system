@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRoom } from '@/hooks/useRoom';
+import { useRoomStore } from '@/store/roomStore';
 import { getSocket } from '@/lib/socket-client';
 import { Send, Sparkles } from 'lucide-react';
 
@@ -14,7 +15,7 @@ function formatTimestamp(ts: number): string {
 }
 
 export function Chat() {
-  const { chatMessages, me } = useRoom();
+  const { chatMessages, me, myUserId, roomId } = useRoom();
   const socket = getSocket();
   const [text, setText] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -24,18 +25,58 @@ export function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  function send(e: React.FormEvent) {
+  async function send(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed || isSubmittingRef.current) return;
 
     isSubmittingRef.current = true;
     setText('');
-    socket.emit('chat_message', { text: trimmed });
+
+    const now = Date.now();
+    const senderId = me?.userId || myUserId || 'user';
+    const senderName = me?.username || 'You';
+    const msgId = `${senderId}-${now}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const newMsg = {
+      id: msgId,
+      userId: senderId,
+      username: senderName,
+      text: trimmed,
+      timestamp: now,
+    };
+
+    // 1. Optimistic local update
+    useRoomStore.getState().addChatMessage(newMsg);
+
+    // 2. WebSocket emit
+    try {
+      socket.emit('chat_message', { text: trimmed, id: msgId, timestamp: now });
+    } catch (_) {}
+
+    // 3. REST API persistence for serverless environments
+    if (roomId) {
+      try {
+        fetch(`/api/rooms/${roomId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatMessage: newMsg }),
+        })
+          .then(async (res) => {
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.messages && Array.isArray(data.messages)) {
+                useRoomStore.getState().setChatMessages(data.messages);
+              }
+            }
+          })
+          .catch(() => {});
+      } catch (_) {}
+    }
 
     setTimeout(() => {
       isSubmittingRef.current = false;
-    }, 400);
+    }, 300);
   }
 
   return (
@@ -59,7 +100,7 @@ export function Chat() {
 
           return (
             <div
-              key={`${m.userId}-${m.timestamp}-${i}`}
+              key={m.id || `${m.userId}-${m.timestamp}-${i}`}
               className={`rounded-xl p-2 sm:p-2.5 border transition-all ${
                 isSystem
                   ? 'bg-amber-100/70 dark:bg-amber-500/10 border-amber-300/80 dark:border-amber-500/30 text-amber-950 dark:text-amber-200 shadow-xs'

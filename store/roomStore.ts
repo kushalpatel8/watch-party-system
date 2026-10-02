@@ -28,8 +28,9 @@ interface RoomStore {
   removeRequest: (id: string) => void;
 
   // Chat
-  chatMessages: { userId: string; username: string; text: string; timestamp: number }[];
-  addChatMessage: (m: { userId: string; username: string; text: string; timestamp: number }) => void;
+  chatMessages: { id?: string; userId: string; username: string; text: string; timestamp: number }[];
+  addChatMessage: (m: { id?: string; userId: string; username: string; text: string; timestamp: number }) => void;
+  setChatMessages: (msgs: { id?: string; userId: string; username: string; text: string; timestamp: number }[]) => void;
 
   // Reactions (ephemeral)
   reactions: { userId: string; username: string; emoji: string; timestamp: number; id: string }[];
@@ -65,14 +66,37 @@ export const useRoomStore = create<RoomStore>((set) => ({
     set((state) => {
       const isDuplicate = state.chatMessages.some(
         (msg) =>
-          msg.userId === m.userId &&
-          msg.text === m.text &&
-          Math.abs(msg.timestamp - m.timestamp) < 2000
+          (Boolean(m.id && msg.id) && m.id === msg.id) ||
+          (msg.userId === m.userId &&
+            msg.text === m.text &&
+            Math.abs(msg.timestamp - m.timestamp) < 5000)
       );
       if (isDuplicate) return state;
       return {
         chatMessages: [...state.chatMessages.slice(-199), m],
       };
+    }),
+  setChatMessages: (msgs) =>
+    set((state) => {
+      if (!msgs || msgs.length === 0) return state;
+      const combined = [...state.chatMessages];
+
+      for (const incoming of msgs) {
+        const isExisting = combined.some(
+          (m) =>
+            (Boolean(incoming.id && m.id) && incoming.id === m.id) ||
+            (m.userId === incoming.userId &&
+              m.text === incoming.text &&
+              Math.abs(m.timestamp - incoming.timestamp) < 5000)
+        );
+
+        if (!isExisting) {
+          combined.push(incoming);
+        }
+      }
+
+      combined.sort((a, b) => a.timestamp - b.timestamp);
+      return { chatMessages: combined.slice(-200) };
     }),
 
   reactions: [],

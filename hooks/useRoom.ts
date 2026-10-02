@@ -37,6 +37,7 @@ export function useRoom() {
   return {
     participants,
     me,
+    myUserId,
     myRole,
     isHost,
     isModerator,

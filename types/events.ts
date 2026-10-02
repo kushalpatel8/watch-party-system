@@ -40,7 +40,7 @@ export interface ClientToServerEvents {
   transfer_host: (data: { userId: string }) => void;
   request_change: (data: { type: ChangeRequest['type']; payload: Record<string, unknown> }) => void;
   resolve_request: (data: { requestId: string; approve: boolean }) => void;
-  chat_message: (data: { text: string }) => void;
+  chat_message: (data: { text: string; id?: string; timestamp?: number }) => void;
   reaction: (data: { emoji: string }) => void;
 }
 
@@ -63,7 +63,7 @@ export interface ServerToClientEvents {
     type?: ChangeRequest['type'];
     payload?: Record<string, unknown>;
   }) => void;
-  chat_message: (data: { userId: string; username: string; text: string; timestamp: number }) => void;
+  chat_message: (data: { id?: string; userId: string; username: string; text: string; timestamp: number }) => void;
   reaction: (data: { userId: string; username: string; emoji: string; timestamp: number }) => void;
   error: (data: { code: string; message: string }) => void;
 }

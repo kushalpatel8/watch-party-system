@@ -1,5 +1,13 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface IRoomMessage {
+  id?: string;
+  userId: string;
+  username: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface IRoom extends Document {
   code: string;
   hostId: string;
@@ -10,6 +18,7 @@ export interface IRoom extends Document {
   createdAt: Date;
   lastActiveAt: Date;
   members: Array<{ userId: string; role: string }>;
+  messages: Array<IRoomMessage>;
 }
 
 const RoomSchema = new Schema<IRoom>({
@@ -27,8 +36,18 @@ const RoomSchema = new Schema<IRoom>({
       role: { type: String, enum: ['Host', 'Moderator', 'Participant'], default: 'Participant' },
     },
   ],
+  messages: [
+    {
+      id: { type: String, default: '' },
+      userId: { type: String, required: true },
+      username: { type: String, required: true },
+      text: { type: String, required: true },
+      timestamp: { type: Number, required: true },
+    },
+  ],
 });
 
 RoomSchema.index({ code: 1 });
 
 export const Room = mongoose.models.Room || mongoose.model<IRoom>('Room', RoomSchema);
+

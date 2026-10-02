@@ -106,6 +106,13 @@ export default async function RoomPage({ params }: RoomPageProps) {
     updatedAt: room.updatedAt || Date.now(),
   };
 
+  const initialMessages = (room.messages || []).map((m: any) => ({
+    userId: m.userId,
+    username: m.username,
+    text: m.text,
+    timestamp: m.timestamp,
+  }));
+
   return (
     <RoomClient
       roomId={roomId.toUpperCase()}
@@ -113,6 +120,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
       initialVideoId={room.currentVideoId || 'VuG7ge_8I2Y'}
       initialSyncState={initialSyncState}
       initialParticipants={initialParticipants}
+      initialMessages={initialMessages}
       isCreator={room.hostId === userId}
       currentUserId={userId}
     />

@@ -15,6 +15,8 @@ export function useSocket(roomId: string) {
   const { user } = useUser();
   const store = useRoomStore();
   const joined = useRef(false);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
     if (!userId || !roomId) return;
@@ -169,8 +171,9 @@ export function useSocket(roomId: string) {
       if (!isMounted) return;
       if (!socket.connected) {
         try {
-          const uname = user?.username || user?.firstName || 'User';
-          const imgUrl = user?.imageUrl || '';
+          const currentUser = userRef.current;
+          const uname = currentUser?.username || currentUser?.firstName || 'User';
+          const imgUrl = currentUser?.imageUrl || '';
           const res = await fetch(
             `/api/rooms/${roomId}?userId=${encodeURIComponent(userId)}&username=${encodeURIComponent(uname)}&imageUrl=${encodeURIComponent(imgUrl)}`
           );
@@ -178,6 +181,9 @@ export function useSocket(roomId: string) {
             const data = await res.json();
             if (data?.participants && Array.isArray(data.participants)) {
               store.setParticipants(data.participants);
+            }
+            if (data?.messages && Array.isArray(data.messages)) {
+              store.setChatMessages(data.messages);
             }
             if (data?.syncState) {
               const currentSync = useRoomStore.getState().syncState;
@@ -216,5 +222,5 @@ export function useSocket(roomId: string) {
       store.reset();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, roomId, user]);
+  }, [userId, roomId]);
 }
