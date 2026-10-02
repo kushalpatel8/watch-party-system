@@ -181,10 +181,31 @@ export function usePlayerSync({ containerId, canControl, onPlay, onPause, onSeek
 
             const YT = window.YT;
             if (e.data === YT?.PlayerState?.PLAYING) {
+              const currentSync = useRoomStore.getState().syncState;
+              useRoomStore.getState().setSyncState({
+                videoId: currentSync?.videoId || prevVideoId.current || 'VuG7ge_8I2Y',
+                playState: 'playing',
+                currentTime: playerRef.current?.getCurrentTime?.() ?? 0,
+                updatedAt: Date.now(),
+              });
               onPlayRef.current?.();
             } else if (e.data === YT?.PlayerState?.PAUSED) {
+              const currentSync = useRoomStore.getState().syncState;
+              useRoomStore.getState().setSyncState({
+                videoId: currentSync?.videoId || prevVideoId.current || 'VuG7ge_8I2Y',
+                playState: 'paused',
+                currentTime: playerRef.current?.getCurrentTime?.() ?? 0,
+                updatedAt: Date.now(),
+              });
               onPauseRef.current?.();
             } else if (e.data === YT?.PlayerState?.ENDED) {
+              const currentSync = useRoomStore.getState().syncState;
+              useRoomStore.getState().setSyncState({
+                videoId: currentSync?.videoId || prevVideoId.current || 'VuG7ge_8I2Y',
+                playState: 'paused',
+                currentTime: playerRef.current?.getDuration?.() ?? 0,
+                updatedAt: Date.now(),
+              });
               onPauseRef.current?.();
             }
           },

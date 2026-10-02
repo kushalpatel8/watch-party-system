@@ -213,7 +213,7 @@ export function RoomClient({ roomId, initialHostId, initialVideoId, isCreator, c
         <div className="flex flex-col justify-between gap-1.5 sm:gap-2 h-full min-h-0 overflow-hidden">
           {/* Video Player (Responsive Screen-Fit Frame) */}
           <div className="w-full shrink-0 flex items-center justify-center lg:flex-1 lg:min-h-0 overflow-hidden">
-            <YouTubePlayer roomId={roomId} />
+            <YouTubePlayer roomId={roomId} canControl={canControl} />
           </div>
 
           {/* Underneath Player: Controls, URL input & reactions (Aligned to Bottom) */}

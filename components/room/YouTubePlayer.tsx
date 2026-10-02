@@ -7,8 +7,11 @@ import { getSocket } from '@/lib/socket-client';
 import { Play, Pause, Volume2, VolumeX, Maximize, Settings, Share2, MonitorPlay } from 'lucide-react';
 import { copyToClipboard } from '@/lib/permissions';
 
+import { useRoomStore } from '@/store/roomStore';
+
 interface YouTubePlayerProps {
   roomId: string;
+  canControl?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -18,8 +21,9 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
-  const { canControl, syncState } = useRoom();
+export function YouTubePlayer({ roomId, canControl: canControlProp }: YouTubePlayerProps) {
+  const { canControl: hookCanControl, syncState, participants, isHost } = useRoom();
+  const effectiveCanControl = canControlProp ?? (hookCanControl || isHost || participants.length <= 1);
   const [autoplayClicked, setAutoplayClicked] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -31,15 +35,21 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
 
   const { playerRef, readyRef } = usePlayerSync({
     containerId: 'yt-player',
-    canControl,
+    canControl: effectiveCanControl,
     onPlay: () => {
-      if (canControl) socket.emit('play', {});
+      if (effectiveCanControl) {
+        try { socket.emit('play', {}); } catch (_) {}
+      }
     },
     onPause: () => {
-      if (canControl) socket.emit('pause', {});
+      if (effectiveCanControl) {
+        try { socket.emit('pause', {}); } catch (_) {}
+      }
     },
     onSeek: (time) => {
-      if (canControl) socket.emit('seek', { time });
+      if (effectiveCanControl) {
+        try { socket.emit('seek', { time }); } catch (_) {}
+      }
     },
   });
 
@@ -63,20 +73,79 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
 
   function handleTogglePlay() {
     setAutoplayClicked(true);
-    if (!canControl) return;
+    if (!effectiveCanControl) return;
+
+    const player = playerRef.current;
     if (isPlaying) {
-      socket.emit('pause', {});
+      // 1. Direct player pause
+      try {
+        player?.pauseVideo?.();
+      } catch (err) {
+        console.warn('[Player] pauseVideo error:', err);
+      }
+
+      // 2. Update local state
+      const curTime = player?.getCurrentTime?.() ?? currentTime;
+      useRoomStore.getState().setSyncState({
+        videoId: syncState?.videoId || 'VuG7ge_8I2Y',
+        playState: 'paused',
+        currentTime: curTime,
+        updatedAt: Date.now(),
+      });
+
+      // 3. Emit socket event
+      try {
+        socket.emit('pause', {});
+      } catch (_) {}
     } else {
-      socket.emit('play', {});
+      // 1. Direct player play on user gesture
+      try {
+        player?.playVideo?.();
+      } catch (err) {
+        console.warn('[Player] playVideo error:', err);
+      }
+
+      // 2. Update local state
+      const curTime = player?.getCurrentTime?.() ?? currentTime;
+      useRoomStore.getState().setSyncState({
+        videoId: syncState?.videoId || 'VuG7ge_8I2Y',
+        playState: 'playing',
+        currentTime: curTime,
+        updatedAt: Date.now(),
+      });
+
+      // 3. Emit socket event
+      try {
+        socket.emit('play', {});
+      } catch (_) {}
     }
   }
 
   function handleSeek(e: React.ChangeEvent<HTMLInputElement>) {
     setAutoplayClicked(true);
-    if (!canControl) return;
+    if (!effectiveCanControl) return;
     const target = parseFloat(e.target.value);
     setCurrentTime(target);
-    socket.emit('seek', { time: target });
+
+    // 1. Direct player seek
+    try {
+      playerRef.current?.seekTo?.(target, true);
+    } catch (err) {
+      console.warn('[Player] seekTo error:', err);
+    }
+
+    // 2. Update local state
+    useRoomStore.getState().setSyncState({
+      videoId: syncState?.videoId || 'VuG7ge_8I2Y',
+      playState: syncState?.playState || 'paused',
+      currentTime: target,
+      updatedAt: Date.now(),
+    });
+
+    // 3. Emit socket event
+    try {
+      socket.emit('seek', { time: target });
+    } catch (_) {}
   }
 
   function handleVolumeChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -128,7 +197,7 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
       className="relative aspect-video w-full max-w-full h-auto max-h-[36dvh] lg:max-h-full rounded-xl sm:rounded-2xl overflow-hidden bg-black cyber-player-frame flex flex-col justify-between group select-none shrink-0 lg:shrink"
     >
       {/* The IFrame API target */}
-      <div id="yt-player" className={`absolute inset-0 w-full h-full ${!canControl ? 'pointer-events-none' : ''}`} />
+      <div id="yt-player" className={`absolute inset-0 w-full h-full ${!effectiveCanControl ? 'pointer-events-none' : ''}`} />
 
       {/* Top overlay bar */}
       <div className="relative z-10 p-2.5 sm:p-4 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
@@ -152,7 +221,7 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 sm:gap-4 text-muted-foreground pointer-events-none z-10 p-4 text-center">
           <MonitorPlay className="w-10 h-10 sm:w-16 sm:h-16 opacity-30 text-amber-400" />
           <p className="text-xs sm:text-sm opacity-60 max-w-xs sm:max-w-md">
-            {canControl ? 'Paste a YouTube URL below to start watching' : 'Waiting for the host to load a video…'}
+            {effectiveCanControl ? 'Paste a YouTube URL below to start watching' : 'Waiting for the host to load a video…'}
           </p>
         </div>
       )}
@@ -162,11 +231,20 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
         <button
           onClick={() => {
             setAutoplayClicked(true);
-            if (syncState.playState === 'playing') {
-              playerRef.current?.playVideo?.();
-            } else {
-              playerRef.current?.pauseVideo?.();
+            if (playerRef.current) {
+              try {
+                playerRef.current.playVideo?.();
+              } catch (_) {}
             }
+            useRoomStore.getState().setSyncState({
+              videoId: syncState.videoId,
+              playState: 'playing',
+              currentTime: playerRef.current?.getCurrentTime?.() ?? 0,
+              updatedAt: Date.now(),
+            });
+            try {
+              socket.emit('play', {});
+            } catch (_) {}
           }}
           className="absolute inset-0 flex flex-col items-center justify-center gap-2 sm:gap-3 bg-black/60 z-20 group transition-all hover:bg-black/50 cursor-pointer"
         >
@@ -195,7 +273,7 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
             step={0.1}
             value={currentTime}
             onChange={handleSeek}
-            disabled={!canControl}
+            disabled={!effectiveCanControl}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-default"
           />
           {/* Thumb circle */}
@@ -210,10 +288,11 @@ export function YouTubePlayer({ roomId }: YouTubePlayerProps) {
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Play/Pause */}
             <button
+              id="toggle-play-btn"
               onClick={handleTogglePlay}
-              disabled={!canControl}
+              disabled={!effectiveCanControl}
               className={`p-1 sm:p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-white/10 transition-all active:scale-90 ${
-                !canControl ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                !effectiveCanControl ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
               }`}
               title={isPlaying ? 'Pause' : 'Play'}
             >
